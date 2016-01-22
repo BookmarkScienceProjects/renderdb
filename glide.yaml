@@ -1,0 +1,14 @@
+package: main
+import:
+- package: github.com/lib/pq
+  version: 8ad2b298cadd691a77015666a5372eae5dbfac8f
+- package: github.com/stretchr/testify
+  subpackages:
+  - /assert
+  - /mock
+- package: github.com/gorilla/mux
+- package: github.com/ungerik/go3d
+  subpackages:
+  - /vec3
+- package: github.com/dhconnelly/rtreego
+- package: github.com/jmoiron/sqlx
