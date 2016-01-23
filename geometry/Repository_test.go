@@ -10,45 +10,45 @@ import (
 	"github.com/ungerik/go3d/vec3"
 )
 
-type mockGeometryDatabase struct {
+type mockDatabase struct {
 	mock.Mock
 }
 
-func (m *mockGeometryDatabase) add(o GeometryObject) (int64, error) {
+func (m *mockDatabase) add(o Object) (int64, error) {
 	args := m.Called(o)
 	return int64(args.Int(0)), args.Error(1)
 }
 
-func (m *mockGeometryDatabase) getMany(ids []int64) (<-chan *geometryData, <-chan error) {
+func (m *mockDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
 	args := m.Called(ids)
-	return args.Get(0).(chan *geometryData), args.Get(1).(chan error)
+	return args.Get(0).(chan *data), args.Get(1).(chan error)
 }
 
 // createGetManyResult is a helper function to emulate how getMany() returns
 // values/error. Usage:
 //   .Returns(createGetManyResult(data1, data2, err)) // Returns two values, then fails
-func createGetManyResult(values ...interface{}) (chan *geometryData, chan error) {
-	dataCh := make(chan *geometryData)
+func createGetManyResult(values ...interface{}) (chan *data, chan error) {
+	dataCh := make(chan *data)
 	errCh := make(chan error)
 	go func() {
 		defer close(dataCh)
 		defer close(errCh)
 		for _, v := range values {
-			if data, ok := v.(*geometryData); ok {
+			if data, ok := v.(*data); ok {
 				dataCh <- data
 			} else if err, ok := v.(error); ok {
 				errCh <- err
 				return
 			} else {
-				panic("Values must be error or *geometryData")
+				panic("Values must be error or *data")
 			}
 		}
 	}()
 	return dataCh, errCh
 }
 
-func flattenGetInsideVolumeResults(objCh <-chan GeometryObject, errCh <-chan error) ([]GeometryObject, error) {
-	objects := []GeometryObject{}
+func flattenGetInsideVolumeResults(objCh <-chan Object, errCh <-chan error) ([]Object, error) {
+	objects := []Object{}
 	doBreak := false
 	for !doBreak {
 		select {
@@ -69,9 +69,9 @@ func flattenGetInsideVolumeResults(objCh <-chan GeometryObject, errCh <-chan err
 
 func TestAdd_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
 	// Arrange
-	obj := new(SimpleGeometryObject)
+	obj := new(SimpleObject)
 
-	mockDb := new(mockGeometryDatabase)
+	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(1, nil)
 
 	rtree := rtreego.NewTree(3, 5, 10)
@@ -89,9 +89,9 @@ func TestAdd_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
 
 func TestAdd_DatabaseReturnsError_DoesNotAddToTree(t *testing.T) {
 	// Arrange
-	obj := new(SimpleGeometryObject)
+	obj := new(SimpleObject)
 
-	mockDb := new(mockGeometryDatabase)
+	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(0, errors.New("error"))
 
 	rtree := rtreego.NewTree(3, 5, 10)
@@ -108,13 +108,13 @@ func TestAdd_DatabaseReturnsError_DoesNotAddToTree(t *testing.T) {
 func TestGetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{1, 1, 1}, vec3.T{2, 2, 2}}
-	obj := &SimpleGeometryObject{
+	obj := &SimpleObject{
 		bounds:       objBounds,
 		geometryText: "",
 		metadata:     nil,
 	}
 
-	mockDb := new(mockGeometryDatabase)
+	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(1, nil)
 	mockDb.On("getMany", []int64{}).Return(createGetManyResult())
 
@@ -135,15 +135,15 @@ func TestGetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.T) {
 func TestGetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	obj := &SimpleGeometryObject{
+	obj := &SimpleObject{
 		bounds:       objBounds,
 		geometryText: "",
 		metadata:     nil,
 	}
 
-	data := new(geometryData)
+	data := new(data)
 	data.id = 1
-	mockDb := new(mockGeometryDatabase)
+	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(1, nil)
 	mockDb.On("getMany", []int64{1}).Return(createGetManyResult(data))
 	rtree := rtreego.NewTree(3, 5, 10)
@@ -163,13 +163,13 @@ func TestGetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) {
 func TestGetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	obj := &SimpleGeometryObject{
+	obj := &SimpleObject{
 		bounds:       objBounds,
 		geometryText: "",
 		metadata:     nil,
 	}
 
-	mockDb := new(mockGeometryDatabase)
+	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(1, nil)
 	mockDb.On("getMany", []int64{1}).Return(createGetManyResult(errors.New("error")))
 	rtree := rtreego.NewTree(3, 5, 10)
@@ -189,20 +189,20 @@ func TestGetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing.T) {
 func TestGetInsideVolume_DatabaseReturnsOneThenError_ReturnsOneThenError(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	obj1 := &SimpleGeometryObject{
+	obj1 := &SimpleObject{
 		bounds:       objBounds,
 		geometryText: "1",
 		metadata:     nil,
 	}
-	obj2 := &SimpleGeometryObject{
+	obj2 := &SimpleObject{
 		bounds:       objBounds,
 		geometryText: "2",
 		metadata:     nil,
 	}
 
-	data := new(geometryData)
+	data := new(data)
 	data.id = 1
-	mockDb := new(mockGeometryDatabase)
+	mockDb := new(mockDatabase)
 	mockDb.On("add", obj1).Return(1, nil)
 	mockDb.On("add", obj2).Return(2, nil)
 	mockDb.On("getMany", []int64{1, 2}).Return(createGetManyResult(data, errors.New("error")))

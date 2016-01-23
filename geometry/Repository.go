@@ -12,22 +12,22 @@ import (
 type Repository interface {
 	// Add puts the object given in the database. Returns the ID of the inserted
 	// object or an error.
-	Add(o GeometryObject) (int64, error)
+	Add(o Object) (int64, error)
 	// GetInsideVolume returns all objects inside the bounding box. Returns two channels,
 	// one for geometry object and one for error. The operation is aborted on the first error.
-	GetInsideVolume(bounds vec3.Box) (<-chan GeometryObject, <-chan error)
+	GetInsideVolume(bounds vec3.Box) (<-chan Object, <-chan error)
 }
 
 // NewRepository initializes a new repository using the given database.
 func NewRepository(db *sqlx.DB) (Repository, error) {
 	repo := new(defaultRepository)
-	repo.database = newSQLGeometryDatabase(db)
+	repo.database = newSQLDatabase(db)
 	repo.tree = rtreego.NewTree(3, 25, 50)
 	return repo, nil
 }
 
 type defaultRepository struct {
-	database geometryDatabase
+	database database
 	tree     *rtreego.Rtree
 }
 
@@ -48,7 +48,7 @@ func rectToBox(rect *rtreego.Rect) vec3.Box {
 	return vec3.Box{min, max}
 }
 
-func (r *defaultRepository) Add(o GeometryObject) (int64, error) {
+func (r *defaultRepository) Add(o Object) (int64, error) {
 	id, err := r.database.add(o)
 	if err == nil {
 		r.tree.Insert(&rtreeEntry{id, boxToRect(o.Bounds())})
@@ -56,8 +56,8 @@ func (r *defaultRepository) Add(o GeometryObject) (int64, error) {
 	return id, err
 }
 
-func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) (<-chan GeometryObject, <-chan error) {
-	geometryCh := make(chan GeometryObject, 200)
+func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) (<-chan Object, <-chan error) {
+	geometryCh := make(chan Object, 200)
 	errCh := make(chan error)
 
 	go func() {
@@ -67,12 +67,12 @@ func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) (<-chan GeometryObj
 		// Spacial lookup
 		results := r.tree.SearchIntersect(boxToRect(bounds))
 		ids := make([]int64, len(results))
-		geometry := make(map[int64]*SimpleGeometryObject)
+		geometry := make(map[int64]*SimpleObject)
 		for i, x := range results {
 			entry := x.(*rtreeEntry)
 			ids[i] = entry.id
 
-			o := new(SimpleGeometryObject)
+			o := new(SimpleObject)
 			o.bounds = rectToBox(entry.bounds)
 			geometry[entry.id] = o
 		}
@@ -82,7 +82,7 @@ func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) (<-chan GeometryObj
 		// Merge spatial data and metadata/exact geometry
 		open := true
 		for open {
-			var data *geometryData
+			var data *data
 			var err error
 
 			select {
