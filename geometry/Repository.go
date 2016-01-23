@@ -13,9 +13,9 @@ type Repository interface {
 	// Add puts the object given in the database. Returns the ID of the inserted
 	// object or an error.
 	Add(o GeometryObject) (int64, error)
-	// GetInsideVolume returns all objects inside the bounding box. Returns an error
-	// if the database lookup fails (but not if the result set is empty).
-	GetInsideVolume(bounds vec3.Box) ([]GeometryObject, error)
+	// GetInsideVolume returns all objects inside the bounding box. Returns two channels,
+	// one for geometry object and one for error. The operation is aborted on the first error.
+	GetInsideVolume(bounds vec3.Box) (<-chan GeometryObject, <-chan error)
 }
 
 // NewRepository initializes a new repository using the given database.
@@ -56,40 +56,56 @@ func (r *defaultRepository) Add(o GeometryObject) (int64, error) {
 	return id, err
 }
 
-func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) ([]GeometryObject, error) {
-	// Spacial lookup
-	results := r.tree.SearchIntersect(boxToRect(bounds))
-	ids := make([]int64, len(results))
-	geometry := make(map[int64]*SimpleGeometryObject)
-	for i, x := range results {
-		entry := x.(*rtreeEntry)
-		ids[i] = entry.id
+func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) (<-chan GeometryObject, <-chan error) {
+	geometryCh := make(chan GeometryObject, 200)
+	errCh := make(chan error)
 
-		o := new(SimpleGeometryObject)
-		o.bounds = rectToBox(entry.bounds)
-		geometry[entry.id] = o
-	}
+	go func() {
+		defer close(geometryCh)
+		defer close(errCh)
 
-	// Lookup exact geometry and metadata
-	data, err := r.database.getMany(ids)
-	if err != nil {
-		return nil, err
-	}
+		// Spacial lookup
+		results := r.tree.SearchIntersect(boxToRect(bounds))
+		ids := make([]int64, len(results))
+		geometry := make(map[int64]*SimpleGeometryObject)
+		for i, x := range results {
+			entry := x.(*rtreeEntry)
+			ids[i] = entry.id
 
-	// Merge spatial data and metadata/exact geometry
-	for _, x := range data {
-		o, found := geometry[x.id]
-		if !found {
-			return nil, fmt.Errorf("Database returned item with ID %d, but this was not in the query volume", x.id)
+			o := new(SimpleGeometryObject)
+			o.bounds = rectToBox(entry.bounds)
+			geometry[entry.id] = o
 		}
-		o.metadata = x.metadata
-		o.geometryText = x.geometryText
-	}
 
-	// Extract
-	asArray := make([]GeometryObject, 0, len(geometry))
-	for _, v := range geometry {
-		asArray = append(asArray, v)
-	}
-	return asArray, nil
+		// Lookup exact geometry and metadata
+		dbDataCh, dbErrCh := r.database.getMany(ids)
+		// Merge spatial data and metadata/exact geometry
+		open := true
+		for open {
+			var data *geometryData
+			var err error
+
+			select {
+			case data, open = <-dbDataCh:
+				if open {
+					o, found := geometry[data.id]
+					if !found {
+						errCh <- fmt.Errorf("Database returned item with ID %d, but this was not in the query volume", data.id)
+						return
+					}
+					o.metadata = data.metadata
+					o.geometryText = data.geometryText
+					geometryCh <- o
+				}
+
+			case err, open = <-dbErrCh:
+				if open {
+					errCh <- err
+				}
+				return
+			}
+		}
+	}()
+
+	return geometryCh, errCh
 }
