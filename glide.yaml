@@ -4,7 +4,6 @@ import:
   version: 26a6070f849969ba72b72256e9f14cf519751690
 - package: github.com/jmoiron/sqlx
   version: 5978a4ef08e4ddae6983d82b9166353fe21c6600
-- package: github.com/camlistore/lock
 - package: github.com/lib/pq
   version: 8ad2b298cadd691a77015666a5372eae5dbfac8f
 - package: github.com/ungerik/go3d
