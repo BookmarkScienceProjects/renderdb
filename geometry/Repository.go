@@ -62,7 +62,6 @@ func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) (<-chan Object, <-c
 
 	go func() {
 		defer close(geometryCh)
-		defer close(errCh)
 
 		// Spacial lookup
 		results := r.tree.SearchIntersect(boxToRect(bounds))

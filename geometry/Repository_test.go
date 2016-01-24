@@ -32,7 +32,6 @@ func createGetManyResult(values ...interface{}) (chan *data, chan error) {
 	errCh := make(chan error)
 	go func() {
 		defer close(dataCh)
-		defer close(errCh)
 		for _, v := range values {
 			if data, ok := v.(*data); ok {
 				dataCh <- data
@@ -52,22 +51,20 @@ func flattenGetInsideVolumeResults(objCh <-chan Object, errCh <-chan error) ([]O
 	doBreak := false
 	for !doBreak {
 		select {
-		case obj, ok := <-objCh:
-			if ok {
+		case obj, more := <-objCh:
+			if more {
 				objects = append(objects, obj)
 			} else {
 				doBreak = true
 			}
-		case err, ok := <-errCh:
-			if ok {
-				return objects, err
-			}
+		case err := <-errCh:
+			return objects, err
 		}
 	}
 	return objects, nil
 }
 
-func TestAdd_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
+func TestRepository_Add_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
 	// Arrange
 	obj := new(SimpleObject)
 
@@ -87,7 +84,7 @@ func TestAdd_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
 	mockDb.AssertExpectations(t)
 }
 
-func TestAdd_DatabaseReturnsError_DoesNotAddToTree(t *testing.T) {
+func TestRepository_Add_DatabaseReturnsError_DoesNotAddToTree(t *testing.T) {
 	// Arrange
 	obj := new(SimpleObject)
 
@@ -105,7 +102,7 @@ func TestAdd_DatabaseReturnsError_DoesNotAddToTree(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestGetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.T) {
+func TestRepository_GetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{1, 1, 1}, vec3.T{2, 2, 2}}
 	obj := &SimpleObject{
@@ -132,7 +129,7 @@ func TestGetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.T) {
 	assert.Empty(t, objects)
 }
 
-func TestGetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) {
+func TestRepository_GetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj := &SimpleObject{
@@ -160,7 +157,7 @@ func TestGetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) {
 	assert.Equal(t, 1, len(objects))
 }
 
-func TestGetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing.T) {
+func TestRepository_GetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj := &SimpleObject{
@@ -186,7 +183,7 @@ func TestGetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing.T) {
 	assert.Equal(t, 0, len(objects))
 }
 
-func TestGetInsideVolume_DatabaseReturnsOneThenError_ReturnsOneThenError(t *testing.T) {
+func TestRepository_GetInsideVolume_DatabaseReturnsOneThenError_ReturnsOneThenError(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj1 := &SimpleObject{

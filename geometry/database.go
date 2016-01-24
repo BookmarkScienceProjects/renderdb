@@ -39,6 +39,9 @@ func (database *sqlDatabase) add(o Object) (int64, error) {
 
 	result, err := database.db.Exec("INSERT INTO geometry_objects(geometry_text, metadata) VALUES ($1, $2)",
 		o.GeometryText(), jsonTxt)
+	if err != nil {
+		return -1, err
+	}
 	return result.LastInsertId()
 }
 
@@ -64,7 +67,6 @@ func (database *sqlDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
 	errChan := make(chan error)
 	go func() {
 		defer close(dataChan)
-		defer close(errChan)
 
 		// Split into several fetch operations
 		retrievedCount := 0
@@ -73,11 +75,14 @@ func (database *sqlDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
 			if lastElement > len(ids) {
 				lastElement = len(ids)
 			}
+			//chunkIds := make([]int)
 			chunkIds := ids[i:lastElement]
 
 			// TODO: Consider if this should be optimized by creating a temporary table
 			// http://explainextended.com/2009/08/18/passing-parameters-in-mysql-in-list-vs-temporary-table/
-			rows, err := database.db.Queryx("SELECT id, geometry_text, metadata FROM geometry_objects WHERE id IN $1", chunkIds)
+			q, args, _ := sqlx.In("SELECT id, geometry_text, metadata FROM geometry_objects WHERE id IN(?)", chunkIds)
+			q = sqlx.Rebind(sqlx.DOLLAR, q)
+			rows, err := database.db.Queryx(q, args...)
 			if err != nil {
 				errChan <- err
 				return
