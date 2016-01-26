@@ -5,6 +5,8 @@ import (
 
 	"github.com/dhconnelly/rtreego"
 	"github.com/jmoiron/sqlx"
+	"github.com/larsmoa/renderdb/conversion"
+	"github.com/larsmoa/renderdb/geometry/options"
 	"github.com/ungerik/go3d/vec3"
 )
 
@@ -15,7 +17,9 @@ type Repository interface {
 	Add(o Object) (int64, error)
 	// GetInsideVolume returns all objects inside the bounding box. Returns two channels,
 	// one for geometry object and one for error. The operation is aborted on the first error.
-	GetInsideVolume(bounds vec3.Box) (<-chan Object, <-chan error)
+	// Optionally, one or more Options may be provided to alter the behaviour of the
+	// operation.
+	GetInsideVolume(bounds vec3.Box, options ...interface{}) (<-chan Object, <-chan error)
 }
 
 // NewRepository initializes a new repository using the given database.
@@ -31,40 +35,35 @@ type defaultRepository struct {
 	tree     *rtreego.Rtree
 }
 
-func boxToRect(box vec3.Box) *rtreego.Rect {
-	min := box.Min
-	lengths := vec3.Sub(&box.Max, &min)
-
-	p0 := rtreego.Point{float64(min[0]), float64(min[1]), float64(min[2])}
-	l := rtreego.Point{float64(lengths[0]), float64(lengths[1]), float64(lengths[2])}
-	rect, _ := rtreego.NewRect(p0, l)
-	return rect
-}
-
-func rectToBox(rect *rtreego.Rect) vec3.Box {
-	min := vec3.T{float32(rect.PointCoord(0)), float32(rect.PointCoord(1)), float32(rect.PointCoord(2))}
-	lengths := vec3.T{float32(rect.LengthsCoord(0)), float32(rect.LengthsCoord(1)), float32(rect.LengthsCoord(2))}
-	max := vec3.Add(&min, &lengths)
-	return vec3.Box{min, max}
-}
-
 func (r *defaultRepository) Add(o Object) (int64, error) {
 	id, err := r.database.add(o)
 	if err == nil {
-		r.tree.Insert(&rtreeEntry{id, boxToRect(o.Bounds())})
+		r.tree.Insert(&rtreeEntry{id, conversion.BoxToRect(o.Bounds())})
 	}
 	return id, err
 }
 
-func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) (<-chan Object, <-chan error) {
+func (r *defaultRepository) GetInsideVolume(bounds vec3.Box, opts ...interface{}) (<-chan Object, <-chan error) {
 	geometryCh := make(chan Object, 200)
 	errCh := make(chan error)
 
 	go func() {
 		defer close(geometryCh)
 
+		// Verify arguments
+		err := options.VerifyAllAreOptions(opts...)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
 		// Spacial lookup
-		results := r.tree.SearchIntersect(boxToRect(bounds))
+		results := r.tree.SearchIntersect(conversion.BoxToRect(&bounds))
+
+		// Apply geometry filters
+		results = options.ApplyAllFilterGeometryOptions(results, opts...)
+
+		// Create 'object placeholders'
 		ids := make([]int64, len(results))
 		geometry := make(map[int64]*SimpleObject)
 		for i, x := range results {
@@ -72,7 +71,7 @@ func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) (<-chan Object, <-c
 			ids[i] = entry.id
 
 			o := new(SimpleObject)
-			o.bounds = rectToBox(entry.bounds)
+			o.bounds = conversion.RectToBox(entry.bounds)
 			geometry[entry.id] = o
 		}
 
@@ -82,8 +81,6 @@ func (r *defaultRepository) GetInsideVolume(bounds vec3.Box) (<-chan Object, <-c
 		open := true
 		for open {
 			var data *data
-			var err error
-
 			select {
 			case data, open = <-dbDataCh:
 				if open {

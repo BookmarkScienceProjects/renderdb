@@ -24,6 +24,15 @@ func (m *mockDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
 	return args.Get(0).(chan *data), args.Get(1).(chan error)
 }
 
+type mockFilterOptions struct {
+	mock.Mock
+}
+
+func (m *mockFilterOptions) Apply(bounds []*vec3.Box) []int {
+	args := m.Called(bounds)
+	return args.Get(0).([]int)
+}
+
 // createGetManyResult is a helper function to emulate how getMany() returns
 // values/error. Usage:
 //   .Returns(createGetManyResult(data1, data2, err)) // Returns two values, then fails
@@ -67,6 +76,7 @@ func flattenGetInsideVolumeResults(objCh <-chan Object, errCh <-chan error) ([]O
 func TestRepository_Add_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
 	// Arrange
 	obj := new(SimpleObject)
+	obj.bounds = &vec3.Box{}
 
 	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(1, nil)
@@ -87,6 +97,7 @@ func TestRepository_Add_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
 func TestRepository_Add_DatabaseReturnsError_DoesNotAddToTree(t *testing.T) {
 	// Arrange
 	obj := new(SimpleObject)
+	obj.bounds = &vec3.Box{}
 
 	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(0, errors.New("error"))
@@ -106,7 +117,7 @@ func TestRepository_GetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.
 	// Arrange
 	objBounds := vec3.Box{vec3.T{1, 1, 1}, vec3.T{2, 2, 2}}
 	obj := &SimpleObject{
-		bounds:       objBounds,
+		bounds:       &objBounds,
 		geometryText: "",
 		metadata:     nil,
 	}
@@ -133,7 +144,7 @@ func TestRepository_GetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) 
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj := &SimpleObject{
-		bounds:       objBounds,
+		bounds:       &objBounds,
 		geometryText: "",
 		metadata:     nil,
 	}
@@ -161,7 +172,7 @@ func TestRepository_GetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj := &SimpleObject{
-		bounds:       objBounds,
+		bounds:       &objBounds,
 		geometryText: "",
 		metadata:     nil,
 	}
@@ -183,16 +194,16 @@ func TestRepository_GetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing
 	assert.Equal(t, 0, len(objects))
 }
 
-func TestRepository_GetInsideVolume_DatabaseReturnsOneThenError_ReturnsOneThenError(t *testing.T) {
+func TestRepository_GetInsideVolume_DatabaseReturnsOneThenError_ReturnsError(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj1 := &SimpleObject{
-		bounds:       objBounds,
+		bounds:       &objBounds,
 		geometryText: "1",
 		metadata:     nil,
 	}
 	obj2 := &SimpleObject{
-		bounds:       objBounds,
+		bounds:       &objBounds,
 		geometryText: "2",
 		metadata:     nil,
 	}
@@ -210,10 +221,48 @@ func TestRepository_GetInsideVolume_DatabaseReturnsOneThenError_ReturnsOneThenEr
 
 	// Act
 	searchBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	objects, err := flattenGetInsideVolumeResults(repo.GetInsideVolume(searchBounds))
+	_, err := flattenGetInsideVolumeResults(repo.GetInsideVolume(searchBounds))
 
 	// Assert
 	mockDb.AssertExpectations(t)
-	assert.Equal(t, 1, len(objects))
 	assert.Error(t, err)
+}
+
+func TestRepository_GetInsideVolume_WithFilterGeometryOptions_ReturnsFiltered(t *testing.T) {
+	// Arrange
+	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
+	obj1 := &SimpleObject{
+		bounds:       &objBounds,
+		geometryText: "1",
+		metadata:     nil,
+	}
+	obj2 := &SimpleObject{
+		bounds:       &objBounds,
+		geometryText: "2",
+		metadata:     nil,
+	}
+
+	data := new(data)
+	data.id = 1
+	mockDb := new(mockDatabase)
+	mockDb.On("add", obj1).Return(1, nil)
+	mockDb.On("add", obj2).Return(2, nil)
+	mockDb.On("getMany", []int64{1}).Return(createGetManyResult(data))
+	rtree := rtreego.NewTree(3, 5, 10)
+	repo := defaultRepository{mockDb, rtree}
+	repo.Add(obj1)
+	repo.Add(obj2)
+
+	mockOptions := new(mockFilterOptions)
+	mockOptions.On("Apply", []*vec3.Box{&objBounds, &objBounds}).Return([]int{0})
+
+	// Act
+	searchBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
+	result, err := flattenGetInsideVolumeResults(repo.GetInsideVolume(searchBounds, mockOptions))
+
+	// Assert
+	mockDb.AssertExpectations(t)
+	mockOptions.AssertExpectations(t)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result))
 }
