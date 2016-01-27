@@ -60,14 +60,12 @@ func parseDataRow(r row) (*data, error) {
 	}
 
 	if jsonTxt != "" {
-		fmt.Println(jsonTxt)
 		err = json.Unmarshal([]byte(jsonTxt), &data.metadata)
 	}
 	return data, err
 }
 
 func (database *sqlDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
-	fmt.Printf("Ids: %v\n", ids)
 	bufferSize := 200
 	dataChan := make(chan *data, bufferSize)
 	errChan := make(chan error)
@@ -81,15 +79,12 @@ func (database *sqlDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
 			if lastElement > len(ids) {
 				lastElement = len(ids)
 			}
-			//chunkIds := make([]int)
-			//chunkIds := ids[i:lastElement]
+			chunkIds := ids[i:lastElement]
 
 			// TODO: Consider if this should be optimized by creating a temporary table
 			// http://explainextended.com/2009/08/18/passing-parameters-in-mysql-in-list-vs-temporary-table/
-			q, args, _ := sqlx.In("SELECT id, geometry_text, metadata FROM geometry_objects")
+			q, args, _ := sqlx.In("SELECT id, geometry_text, metadata FROM geometry_objects WHERE id IN (?)", chunkIds)
 			q = sqlx.Rebind(sqlx.QUESTION, q)
-			fmt.Println(q)
-			fmt.Println(args...)
 			rows, err := database.db.Queryx(q, args...)
 			if err != nil {
 				errChan <- err

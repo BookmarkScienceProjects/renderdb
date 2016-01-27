@@ -30,13 +30,14 @@ func Test_VerifyAllAreOptions_Empty_ReturnsNoError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_VerifyAllAreOptions_AllOptions_ReturnsNoError(t *testing.T) {
+func Test_VerifyAllAreOptions_AllAreOptions_ReturnsNoError(t *testing.T) {
 	// Arrange
-	opt1 := new(stubFilterGeometryOption)
-	opt2 := new(stubFilterGeometryOption)
+	opt1 := stubFilterGeometryOption{}    // By value
+	opt2 := new(stubFilterGeometryOption) // Pointer
+	opt3 := SortByDistance{}
 
 	// Act
-	err := VerifyAllAreOptions(opt1, opt2)
+	err := VerifyAllAreOptions(opt1, opt2, opt3)
 
 	// Assert
 	assert.NoError(t, err)

@@ -23,7 +23,7 @@ func VerifyAllAreOptions(opts ...interface{}) error {
 	for i, o := range opts {
 		_, isOption := o.(FilterGeometryOption)
 		if !isOption {
-			return fmt.Errorf("Argument %d (%v) is not a valid option", i, o)
+			return fmt.Errorf("Argument %d (%T: %+v) is not a valid option", i, o, o)
 		}
 	}
 	return nil

@@ -54,7 +54,7 @@ type SortByDistance struct {
 
 // Apply returns a list of indices that can be used to look up in
 // bounds to create an ordered list.
-func (o *SortByDistance) Apply(bounds []*vec3.Box) []int {
+func (o SortByDistance) Apply(bounds []*vec3.Box) []int {
 	byDistance := byDistance{o.Pivot, bounds, generators.IntRange(0, len(bounds))}
 	sort.Sort(byDistance)
 	return byDistance.indices
