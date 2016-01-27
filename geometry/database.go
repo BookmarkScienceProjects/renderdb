@@ -3,6 +3,7 @@ package geometry
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -10,7 +11,7 @@ import (
 type data struct {
 	id           int64
 	geometryText string
-	metadata     map[string]string
+	metadata     map[string]interface{}
 }
 
 type database interface {
@@ -32,13 +33,14 @@ func (database *sqlDatabase) add(o Object) (int64, error) {
 	if o == nil {
 		return -1, fmt.Errorf("Cannot add nil")
 	}
-	jsonTxt, err := json.Marshal(o.Metadata())
+	jsonBuf, err := json.Marshal(o.Metadata())
 	if err != nil {
 		return -1, err
 	}
 
-	result, err := database.db.Exec("INSERT INTO geometry_objects(geometry_text, metadata) VALUES ($1, $2)",
-		o.GeometryText(), jsonTxt)
+	jsonTxt := strings.Trim(string(jsonBuf), "\"")
+	q := sqlx.Rebind(sqlx.QUESTION, "INSERT INTO geometry_objects(geometry_text, metadata) VALUES ($1, $2)")
+	result, err := database.db.Exec(q, o.GeometryText(), jsonTxt)
 	if err != nil {
 		return -1, err
 	}
@@ -57,11 +59,15 @@ func parseDataRow(r row) (*data, error) {
 		return nil, err
 	}
 
-	err = json.Unmarshal([]byte(jsonTxt), &data.metadata)
+	if jsonTxt != "" {
+		fmt.Println(jsonTxt)
+		err = json.Unmarshal([]byte(jsonTxt), &data.metadata)
+	}
 	return data, err
 }
 
 func (database *sqlDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
+	fmt.Printf("Ids: %v\n", ids)
 	bufferSize := 200
 	dataChan := make(chan *data, bufferSize)
 	errChan := make(chan error)
@@ -76,12 +82,14 @@ func (database *sqlDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
 				lastElement = len(ids)
 			}
 			//chunkIds := make([]int)
-			chunkIds := ids[i:lastElement]
+			//chunkIds := ids[i:lastElement]
 
 			// TODO: Consider if this should be optimized by creating a temporary table
 			// http://explainextended.com/2009/08/18/passing-parameters-in-mysql-in-list-vs-temporary-table/
-			q, args, _ := sqlx.In("SELECT id, geometry_text, metadata FROM geometry_objects WHERE id IN(?)", chunkIds)
-			q = sqlx.Rebind(sqlx.DOLLAR, q)
+			q, args, _ := sqlx.In("SELECT id, geometry_text, metadata FROM geometry_objects")
+			q = sqlx.Rebind(sqlx.QUESTION, q)
+			fmt.Println(q)
+			fmt.Println(args...)
 			rows, err := database.db.Queryx(q, args...)
 			if err != nil {
 				errChan <- err
