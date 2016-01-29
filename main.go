@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
@@ -15,6 +16,7 @@ import (
 
 type applicationArgs struct {
 	dbConnectionString string
+	dbDriver           string
 }
 
 type application struct {
@@ -25,29 +27,40 @@ type application struct {
 }
 
 func (a *application) parseArguments() error {
-	flag.StringVar(&a.args.dbConnectionString, "database", "", "-d")
+	flag.StringVar(&a.args.dbDriver, "driver", "", "")
+	flag.StringVar(&a.args.dbConnectionString, "datasource", "", "")
 	flag.Parse()
 	return nil
 }
 
 func (a *application) initializeDatabase() error {
 	if a.args.dbConnectionString != "" {
-		db, err := sqlx.Open("postgres", a.args.dbConnectionString)
+		db, err := sqlx.Open(a.args.dbDriver, a.args.dbConnectionString)
+		if err != nil {
+			return err
+		}
 		a.db = db
-		return err
 	} else {
 		// In-memory test database
 		db, err := sqlx.Open("sqlite3", ":memory:")
-
-		db.MustExec(`
-            CREATE TABLE geometry_objects(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                geometry_text STRING NOT NULL,
-                metadata STRING NOT NULL
-            )`)
+		if err != nil {
+			return err
+		}
 		a.db = db
-		return err
 	}
+
+	_, err := a.db.Exec(`
+            CREATE TABLE IF NOT EXISTS geometry_objects(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bounds_x_min REAL NOT NULL,
+                bounds_y_min REAL NOT NULL,
+                bounds_z_min REAL NOT NULL,
+                bounds_x_max REAL NOT NULL,
+                bounds_y_max REAL NOT NULL,
+                bounds_z_max REAL NOT NULL,
+                geometry_text STRING NOT NULL,
+                metadata STRING NOT NULL)`)
+	return err
 }
 
 func (a *application) initializeRepository() error {
@@ -98,5 +111,9 @@ func (a *application) run() (int, error) {
 
 func main() {
 	app := application{}
-	app.run()
+	code, err := app.run()
+	if err != nil {
+		fmt.Printf("Error: %v", err)
+	}
+	os.Exit(code)
 }

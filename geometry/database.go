@@ -6,10 +6,27 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/ungerik/go3d/vec3"
+)
+
+const (
+	insertGeometrySQL string = `INSERT INTO geometry_objects(
+            bounds_x_min, bounds_y_min, bounds_z_min, 
+            bounds_x_max, bounds_y_max, bounds_z_max, 
+            geometry_text, metadata) 
+          VALUES (?, ?, ?, 
+                  ?, ?, ?, 
+                  ?, ?)`
+	selectGeometrySQL string = `SELECT id, 
+                bounds_x_min, bounds_y_min, bounds_z_min, 
+                bounds_x_max, bounds_y_max, bounds_z_max,
+                geometry_text, metadata 
+            FROM geometry_objects`
 )
 
 type data struct {
 	id           int64
+	bounds       vec3.Box
 	geometryText string
 	metadata     map[string]interface{}
 }
@@ -17,6 +34,7 @@ type data struct {
 type database interface {
 	add(o Object) (int64, error)
 	getMany(ids []int64) (<-chan *data, <-chan error)
+	getAll() (<-chan *data, <-chan error)
 }
 
 type sqlDatabase struct {
@@ -39,8 +57,12 @@ func (database *sqlDatabase) add(o Object) (int64, error) {
 	}
 
 	jsonTxt := strings.Trim(string(jsonBuf), "\"")
-	q := sqlx.Rebind(sqlx.QUESTION, "INSERT INTO geometry_objects(geometry_text, metadata) VALUES ($1, $2)")
-	result, err := database.db.Exec(q, o.GeometryText(), jsonTxt)
+	bounds_min := o.Bounds().Min
+	bounds_max := o.Bounds().Max
+	result, err := database.db.Exec(insertGeometrySQL,
+		bounds_min[0], bounds_min[1], bounds_min[2],
+		bounds_max[0], bounds_max[1], bounds_max[2],
+		o.GeometryText(), jsonTxt)
 	if err != nil {
 		return -1, err
 	}
@@ -54,7 +76,10 @@ type row interface {
 func parseDataRow(r row) (*data, error) {
 	data := new(data)
 	var jsonTxt string
-	err := r.Scan(&data.id, &data.geometryText, &jsonTxt)
+	err := r.Scan(&data.id,
+		&data.bounds.Min[0], &data.bounds.Min[1], &data.bounds.Min[2],
+		&data.bounds.Max[0], &data.bounds.Max[1], &data.bounds.Max[2],
+		&data.geometryText, &jsonTxt)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +108,7 @@ func (database *sqlDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
 
 			// TODO: Consider if this should be optimized by creating a temporary table
 			// http://explainextended.com/2009/08/18/passing-parameters-in-mysql-in-list-vs-temporary-table/
-			q, args, _ := sqlx.In("SELECT id, geometry_text, metadata FROM geometry_objects WHERE id IN (?)", chunkIds)
+			q, args, _ := sqlx.In(fmt.Sprintf("%s WHERE id IN (?)", selectGeometrySQL), chunkIds)
 			q = sqlx.Rebind(sqlx.QUESTION, q)
 			rows, err := database.db.Queryx(q, args...)
 			if err != nil {
@@ -107,6 +132,34 @@ func (database *sqlDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
 		if retrievedCount < len(ids) {
 			errChan <- fmt.Errorf("Expected %d rows, but got %d", len(ids), retrievedCount)
 			return
+		}
+	}()
+	return dataChan, errChan
+}
+
+func (database *sqlDatabase) getAll() (<-chan *data, <-chan error) {
+	bufferSize := 200
+	dataChan := make(chan *data, bufferSize)
+	errChan := make(chan error)
+	go func() {
+		defer close(dataChan)
+
+		rows, err := database.db.Queryx(selectGeometrySQL)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		defer rows.Close()
+
+		// Parse rows
+		var result *data
+		for rows.Next() {
+			result, err = parseDataRow(rows)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			dataChan <- result
 		}
 	}()
 	return dataChan, errChan

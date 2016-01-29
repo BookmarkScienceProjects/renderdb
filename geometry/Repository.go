@@ -2,6 +2,7 @@ package geometry
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/dhconnelly/rtreego"
 	"github.com/jmoiron/sqlx"
@@ -27,12 +28,41 @@ func NewRepository(db *sqlx.DB) (Repository, error) {
 	repo := new(defaultRepository)
 	repo.database = newSQLDatabase(db)
 	repo.tree = rtreego.NewTree(3, 25, 50)
+	if err := repo.loadFromDatabase(); err != nil {
+		return nil, err
+	}
 	return repo, nil
 }
 
 type defaultRepository struct {
 	database database
 	tree     *rtreego.Rtree
+}
+
+func (r *defaultRepository) loadFromDatabase() error {
+	dataCh, errCh := r.database.getAll()
+	more := true
+	log.Println("Initializing geometry database...")
+	for more {
+		var err error
+		var d *data
+		select {
+		case d, more = <-dataCh:
+			if more {
+				treeEntry := new(rtreeEntry)
+				treeEntry.id = d.id
+				treeEntry.bounds = conversion.BoxToRect(&d.bounds)
+				log.Printf("%d: %v\n", treeEntry.id, treeEntry.bounds)
+				r.tree.Insert(treeEntry)
+			}
+		case err, more = <-errCh:
+			if more {
+				return err
+			}
+		}
+	}
+	log.Printf("Loaded %d geometry objects from database\n", r.tree.Size())
+	return nil
 }
 
 func (r *defaultRepository) Add(o Object) (int64, error) {

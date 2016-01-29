@@ -1,21 +1,21 @@
 package: main
 import:
-- package: github.com/gorilla/mux
-  version: 26a6070f849969ba72b72256e9f14cf519751690
-- package: github.com/jmoiron/sqlx
-  version: 5978a4ef08e4ddae6983d82b9166353fe21c6600
 - package: github.com/lib/pq
   version: 8ad2b298cadd691a77015666a5372eae5dbfac8f
-- package: github.com/ungerik/go3d
-  version: b765e791b61c6db0b9ff62072092d28395aeb106
-  subpackages:
-  - /vec3
 - package: github.com/stretchr/testify
   version: f390dcf405f7b83c997eac1b06768bb9f44dec18
   subpackages:
   - /assert
   - /mock
+- package: github.com/barnex/fmath
 - package: github.com/dhconnelly/rtreego
   version: ddfb5d7b877e08f266b663ffc387fb671f615e8d
-- package: github.com/barnex/fmath
+- package: github.com/gorilla/mux
+  version: 26a6070f849969ba72b72256e9f14cf519751690
+- package: github.com/jmoiron/sqlx
+  version: 5978a4ef08e4ddae6983d82b9166353fe21c6600
+- package: github.com/ungerik/go3d
+  version: b765e791b61c6db0b9ff62072092d28395aeb106
+  subpackages:
+  - /vec3
 - package: github.com/mattn/go-sqlite3
