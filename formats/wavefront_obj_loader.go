@@ -26,35 +26,6 @@ func init() {
 	mtllibRegex = regexp.MustCompile(`^mtllib\s+(.*)$`)
 }
 
-type lineError struct {
-	lineNumber int
-	line       string
-	err        error
-}
-
-func (e lineError) Error() string {
-	return fmt.Sprintf("Line #%d: %v ('%s')", e.lineNumber, e.line, e.err)
-}
-
-// faceCorner represents a 'corner' (or vertex) in a face
-type faceCorner struct {
-	vertexIndex int
-	normalIndex int
-}
-
-// face represents a surface represented by a set of corner
-type face struct {
-	corners []faceCorner
-}
-
-// faceset represents a set of faces that share the same
-// material.
-type faceset struct {
-	firstFaceIndex int
-	faceCount      int
-	material       string
-}
-
 type WavefrontObjLoader struct {
 	objBuffer
 }
@@ -105,6 +76,20 @@ func (l *WavefrontObjLoader) Load(reader io.Reader) error {
 	}
 
 	return scanner.Err()
+}
+
+// Groups returns a buffered channel with one element for each
+// group in the loaded OBJ file.
+func (l *WavefrontObjLoader) Groups() <-chan GeometryGroup {
+	ch := make(chan GeometryGroup, 10)
+	go func() {
+		defer close(ch)
+		for _, g := range l.g {
+			adapter := createGeometryGroupAdapter(&l.objBuffer, g)
+			ch <- adapter
+		}
+	}()
+	return ch
 }
 
 func (l *WavefrontObjLoader) processVertex(fields []string) error {

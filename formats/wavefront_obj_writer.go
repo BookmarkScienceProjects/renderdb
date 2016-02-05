@@ -65,14 +65,6 @@ func writeFace(w io.Writer, f face) error {
 	return nil
 }
 
-func (b *objBuffer) BoundingBox() vec3.Box {
-	box := vec3.Box{}
-	for _, v := range b.v {
-		box.Join(&vec3.Box{v, v})
-	}
-	return box
-}
-
 func writeVectors(w io.Writer, format string, vectors []vec3.T) error {
 	for _, v := range vectors {
 		_, err := io.WriteString(w, fmt.Sprintf(format, v[0], v[1], v[2]))
