@@ -11,6 +11,7 @@ type group struct {
 
 func (g *group) buildBuffers(parentBuffer *objBuffer) *objBuffer {
 	buffer := new(objBuffer)
+	buffer.mtllib = parentBuffer.mtllib
 	buffer.g = []group{
 		group{
 			name:         g.name,

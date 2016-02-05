@@ -21,11 +21,13 @@ func TestGroup_BuildFormats_EmptyGroup_ReturnsEmptyBuffer(t *testing.T) {
 	// Arrange
 	g := group{}
 	origBuffer := objBuffer{}
+	origBuffer.mtllib = "materials.mtl"
 
 	// Act
 	buffer := g.buildBuffers(&origBuffer)
 
 	// Assert
+	assert.Equal(t, "materials.mtl", buffer.mtllib)
 	assert.Equal(t, 0, len(buffer.facesets))
 	assert.Equal(t, 0, len(buffer.f))
 	assert.Equal(t, 0, len(buffer.v))
