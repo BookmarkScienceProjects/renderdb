@@ -7,27 +7,27 @@ import (
 	"github.com/ungerik/go3d/float64/vec3"
 )
 
-func TestWavefrontObjLoader_ProcessMaterialLibrary_InvalidLine_ReturnsError(t *testing.T) {
-	loader := WavefrontObjLoader{}
+func TestWavefrontObjReader_ProcessMaterialLibrary_InvalidLine_ReturnsError(t *testing.T) {
+	loader := WavefrontObjReader{}
 	assert.Error(t, loader.processMaterialLibrary("invalid mtllib line"))
 }
 
-func TestWavefrontObjLoader_ProcessMaterialLibrary_ValidLine_SetsLibrary(t *testing.T) {
-	loader := WavefrontObjLoader{}
+func TestWavefrontObjReader_ProcessMaterialLibrary_ValidLine_SetsLibrary(t *testing.T) {
+	loader := WavefrontObjReader{}
 	err := loader.processMaterialLibrary("mtllib      materials.mtl")
 	assert.NoError(t, err)
 	assert.Equal(t, "materials.mtl", loader.mtllib)
 }
 
-func TestWavefrontObjLoader_ProcessMaterialLibrary_AlreadySet_ReturnsError(t *testing.T) {
-	loader := WavefrontObjLoader{}
+func TestWavefrontObjReader_ProcessMaterialLibrary_AlreadySet_ReturnsError(t *testing.T) {
+	loader := WavefrontObjReader{}
 	loader.mtllib = "somefile.mtl"
 	assert.Error(t, loader.processMaterialLibrary("mtllib materials.mtl"))
 }
 
-func TestWavefrontObjLoader_ProcessGroup_ValidLine_EndsAndStartsFaceset(t *testing.T) {
+func TestWavefrontObjReader_ProcessGroup_ValidLine_EndsAndStartsFaceset(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 	loader.g = append(loader.g, group{facesetCount: -1})
 
 	// Act
@@ -40,15 +40,15 @@ func TestWavefrontObjLoader_ProcessGroup_ValidLine_EndsAndStartsFaceset(t *testi
 	assert.Equal(t, "group", loader.g[1].name)
 }
 
-func TestWavefrontObjLoader_ProcessGroup_InvalidLine_ReturnsError(t *testing.T) {
-	loader := WavefrontObjLoader{}
+func TestWavefrontObjReader_ProcessGroup_InvalidLine_ReturnsError(t *testing.T) {
+	loader := WavefrontObjReader{}
 	err := loader.processUseMaterial("not a g line")
 	assert.Error(t, err)
 }
 
-func TestWavefrontObjLoader_ProcessUseMaterial_ValidLine_EndsAndStartsFaceset(t *testing.T) {
+func TestWavefrontObjReader_ProcessUseMaterial_ValidLine_EndsAndStartsFaceset(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 	loader.facesets = append(loader.facesets, faceset{faceCount: -1})
 
 	// Act
@@ -61,8 +61,8 @@ func TestWavefrontObjLoader_ProcessUseMaterial_ValidLine_EndsAndStartsFaceset(t 
 	assert.Equal(t, "material_name", loader.facesets[1].material)
 }
 
-func TestWavefrontObjLoader_ProcessFace_InvalidFields_ReturnsError(t *testing.T) {
-	loader := WavefrontObjLoader{}
+func TestWavefrontObjReader_ProcessFace_InvalidFields_ReturnsError(t *testing.T) {
+	loader := WavefrontObjReader{}
 	assert.Error(t, loader.processFace([]string{}))
 	assert.Error(t, loader.processFace([]string{"a", "b", "c"}))
 	assert.Error(t, loader.processFace([]string{"1/", "2/", "3/"}))
@@ -70,9 +70,9 @@ func TestWavefrontObjLoader_ProcessFace_InvalidFields_ReturnsError(t *testing.T)
 	assert.Error(t, loader.processFace([]string{"1", "2"}))            // Too few coordinates
 }
 
-func TestWavefrontObjLoader_ProcessFace_VertexOnlyFormat_AddsFace(t *testing.T) {
+func TestWavefrontObjReader_ProcessFace_VertexOnlyFormat_AddsFace(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 
 	// Act
 	err := loader.processFace([]string{"1", "2", "3"})
@@ -81,17 +81,18 @@ func TestWavefrontObjLoader_ProcessFace_VertexOnlyFormat_AddsFace(t *testing.T) 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(loader.f))
 	assert.Equal(t, 3, len(loader.f[0].corners))
-	assert.Equal(t, 1, loader.f[0].corners[0].vertexIndex)
-	assert.Equal(t, 2, loader.f[0].corners[1].vertexIndex)
-	assert.Equal(t, 3, loader.f[0].corners[2].vertexIndex)
+	// Zero-based indices
+	assert.Equal(t, 0, loader.f[0].corners[0].vertexIndex)
+	assert.Equal(t, 1, loader.f[0].corners[1].vertexIndex)
+	assert.Equal(t, 2, loader.f[0].corners[2].vertexIndex)
 	assert.Equal(t, -1, loader.f[0].corners[0].normalIndex)
 	assert.Equal(t, -1, loader.f[0].corners[1].normalIndex)
 	assert.Equal(t, -1, loader.f[0].corners[2].normalIndex)
 }
 
-func TestWavefrontObjLoader_ProcessVertex_XYZ_AddsVertex(t *testing.T) {
+func TestWavefrontObjReader_ProcessVertex_XYZ_AddsVertex(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 
 	// Act
 	err := loader.processVertex([]string{"1.1", "2.0", "3"})
@@ -102,9 +103,9 @@ func TestWavefrontObjLoader_ProcessVertex_XYZ_AddsVertex(t *testing.T) {
 	assert.Equal(t, vec3.T{1.1, 2, 3}, loader.v[0])
 }
 
-func TestWavefrontObjLoader_ProcessVertex_XYZW_IgnoresW(t *testing.T) {
+func TestWavefrontObjReader_ProcessVertex_XYZW_IgnoresW(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 
 	// Act
 	err := loader.processVertex([]string{"1", "2", "3", "999"})
@@ -115,16 +116,16 @@ func TestWavefrontObjLoader_ProcessVertex_XYZW_IgnoresW(t *testing.T) {
 	assert.Equal(t, vec3.T{1, 2, 3}, loader.v[0])
 }
 
-func TestWavefrontObjLoader_ProcessVertex_InvalidFields_ReturnsError(t *testing.T) {
-	loader := WavefrontObjLoader{}
+func TestWavefrontObjReader_ProcessVertex_InvalidFields_ReturnsError(t *testing.T) {
+	loader := WavefrontObjReader{}
 	assert.Error(t, loader.processVertex([]string{"0", "0"}))                // XY only
 	assert.Error(t, loader.processVertex([]string{"0", "0", "A"}))           // Non-number
 	assert.Error(t, loader.processVertex([]string{"0", "0", "0", "1", "2"})) // More than 4 coordinates
 }
 
-func TestWavefrontObjLoader_ProcessVertexNormal_XYZ_AddsNormal(t *testing.T) {
+func TestWavefrontObjReader_ProcessVertexNormal_XYZ_AddsNormal(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 
 	// Act
 	err := loader.processVertexNormal([]string{"1.1", "2.0", "3"})
@@ -135,16 +136,16 @@ func TestWavefrontObjLoader_ProcessVertexNormal_XYZ_AddsNormal(t *testing.T) {
 	assert.Equal(t, vec3.T{1.1, 2, 3}, loader.vn[0])
 }
 
-func TestWavefrontObjLoader_ProcessVertexNormal_InvalidFields_ReturnsError(t *testing.T) {
-	loader := WavefrontObjLoader{}
+func TestWavefrontObjReader_ProcessVertexNormal_InvalidFields_ReturnsError(t *testing.T) {
+	loader := WavefrontObjReader{}
 	assert.Error(t, loader.processVertexNormal([]string{"0", "0"}))           // XY only
 	assert.Error(t, loader.processVertexNormal([]string{"0", "0", "A"}))      // Non-number
 	assert.Error(t, loader.processVertexNormal([]string{"0", "0", "0", "1"})) // More than 3 coordinates
 }
 
-func TestWavefrontObjLoader_StartGroup_StartsNewGroup(t *testing.T) {
+func TestWavefrontObjReader_StartGroup_StartsNewGroup(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 
 	// Act
 	loader.startGroup("MyGroup")
@@ -156,16 +157,16 @@ func TestWavefrontObjLoader_StartGroup_StartsNewGroup(t *testing.T) {
 	assert.Equal(t, -1, loader.g[0].facesetCount)
 }
 
-func TestWavefrontObjLoader_EndGroup_NoGroups_DoesNotPanic(t *testing.T) {
-	loader := WavefrontObjLoader{}
+func TestWavefrontObjReader_EndGroup_NoGroups_DoesNotPanic(t *testing.T) {
+	loader := WavefrontObjReader{}
 	assert.NotPanics(t, func() {
 		loader.endGroup()
 	})
 }
 
-func TestWavefrontObjLoader_EndGroup_GroupStarted_UpdatesFacesetCount(t *testing.T) {
+func TestWavefrontObjReader_EndGroup_GroupStarted_UpdatesFacesetCount(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 	loader.g = append(loader.g, group{
 		name:              "Test",
 		firstFacesetIndex: 0,
@@ -180,9 +181,9 @@ func TestWavefrontObjLoader_EndGroup_GroupStarted_UpdatesFacesetCount(t *testing
 	assert.Equal(t, 1, loader.g[0].facesetCount)
 }
 
-func TestWavefrontObjLoader_StartFaceset_StartsNewFaceset(t *testing.T) {
+func TestWavefrontObjReader_StartFaceset_StartsNewFaceset(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 
 	// Act
 	loader.startFaceset("SomeMaterial")
@@ -194,16 +195,16 @@ func TestWavefrontObjLoader_StartFaceset_StartsNewFaceset(t *testing.T) {
 	assert.Equal(t, -1, loader.facesets[0].faceCount)
 }
 
-func TestWavefrontObjLoader_EndFaceset_NoFacesets_DoesNotPanic(t *testing.T) {
-	loader := WavefrontObjLoader{}
+func TestWavefrontObjReader_EndFaceset_NoFacesets_DoesNotPanic(t *testing.T) {
+	loader := WavefrontObjReader{}
 	assert.NotPanics(t, func() {
 		loader.endFaceset()
 	})
 }
 
-func TestWavefrontObjLoader_EndFaceset_FacesetStarted_UpdatesFaceCount(t *testing.T) {
+func TestWavefrontObjReader_EndFaceset_FacesetStarted_UpdatesFaceCount(t *testing.T) {
 	// Arrange
-	loader := WavefrontObjLoader{}
+	loader := WavefrontObjReader{}
 	loader.facesets = append(loader.facesets, faceset{
 		material:       "Test",
 		firstFaceIndex: 0,

@@ -26,11 +26,11 @@ func init() {
 	mtllibRegex = regexp.MustCompile(`^mtllib\s+(.*)$`)
 }
 
-type WavefrontObjLoader struct {
+type WavefrontObjReader struct {
 	objBuffer
 }
 
-func (l *WavefrontObjLoader) Load(reader io.Reader) error {
+func (l *WavefrontObjReader) Read(reader io.Reader) error {
 	scanner := bufio.NewScanner(reader)
 	i := 0
 	for scanner.Scan() {
@@ -80,7 +80,7 @@ func (l *WavefrontObjLoader) Load(reader io.Reader) error {
 
 // Groups returns a buffered channel with one element for each
 // group in the loaded OBJ file.
-func (l *WavefrontObjLoader) Groups() <-chan GeometryGroup {
+func (l *WavefrontObjReader) Groups() <-chan GeometryGroup {
 	ch := make(chan GeometryGroup, 10)
 	go func() {
 		defer close(ch)
@@ -92,7 +92,7 @@ func (l *WavefrontObjLoader) Groups() <-chan GeometryGroup {
 	return ch
 }
 
-func (l *WavefrontObjLoader) processVertex(fields []string) error {
+func (l *WavefrontObjReader) processVertex(fields []string) error {
 	if len(fields) != 3 && len(fields) != 4 {
 		return fmt.Errorf("Expected 3 or 4 fields, but got %d", len(fields))
 	}
@@ -106,7 +106,7 @@ func (l *WavefrontObjLoader) processVertex(fields []string) error {
 	return nil
 }
 
-func (l *WavefrontObjLoader) processVertexNormal(fields []string) error {
+func (l *WavefrontObjReader) processVertexNormal(fields []string) error {
 	if len(fields) != 3 {
 		return fmt.Errorf("Expected 3 fields, but got %d", len(fields))
 	}
@@ -124,12 +124,12 @@ func parseFaceField(field string) (faceCorner, error) {
 	if match := faceVertexOnlyRegex.FindStringSubmatch(field); match != nil {
 		// f v1 v2 ... - only vertex
 		v, err := strconv.Atoi(match[1])
-		return faceCorner{v, -1}, err
+		return faceCorner{v - 1, -1}, err
 	} else if match := faceVertexAndNormalRegex.FindStringSubmatch(field); match != nil {
 		// f v1//n1 v2//n2 ... - vertex and normal
 		v, errV := strconv.Atoi(match[1])
 		n, errN := strconv.Atoi(match[2])
-		return faceCorner{v, n}, utils.FirstError(errV, errN)
+		return faceCorner{v - 1, n - 1}, utils.FirstError(errV, errN)
 	} else {
 		// Note! f v1/t1 v2/t2 ... - vertex + texture and
 		// f v1/t1/n1 v2/t2/n2 ... - vertex, texture and normal
@@ -138,7 +138,7 @@ func parseFaceField(field string) (faceCorner, error) {
 	}
 }
 
-func (l *WavefrontObjLoader) processFace(fields []string) error {
+func (l *WavefrontObjReader) processFace(fields []string) error {
 	if len(fields) < 3 {
 		return fmt.Errorf("Expected %d fields, but got %d", 3, len(fields))
 	}
@@ -155,7 +155,7 @@ func (l *WavefrontObjLoader) processFace(fields []string) error {
 	return nil
 }
 
-func (l *WavefrontObjLoader) processGroup(line string) error {
+func (l *WavefrontObjReader) processGroup(line string) error {
 	if match := groupRegex.FindStringSubmatch(line); match != nil {
 		l.endGroup()
 		l.startGroup(match[1])
@@ -164,7 +164,7 @@ func (l *WavefrontObjLoader) processGroup(line string) error {
 	return fmt.Errorf("Could not parse group")
 }
 
-func (l *WavefrontObjLoader) processMaterialLibrary(line string) error {
+func (l *WavefrontObjReader) processMaterialLibrary(line string) error {
 	if l.mtllib != "" {
 		return fmt.Errorf("Material library already set")
 	}
@@ -175,7 +175,7 @@ func (l *WavefrontObjLoader) processMaterialLibrary(line string) error {
 	return fmt.Errorf("Could not parse 'mtllib'-line")
 }
 
-func (l *WavefrontObjLoader) processUseMaterial(line string) error {
+func (l *WavefrontObjReader) processUseMaterial(line string) error {
 	if match := usemtlRegex.FindStringSubmatch(line); match != nil {
 		l.endFaceset()
 		l.startFaceset(match[1])
@@ -184,7 +184,7 @@ func (l *WavefrontObjLoader) processUseMaterial(line string) error {
 	return fmt.Errorf("Could not parse 'usemtl'-line")
 }
 
-func (l *WavefrontObjLoader) startFaceset(material string) {
+func (l *WavefrontObjReader) startFaceset(material string) {
 	fs := faceset{
 		material:       material,
 		firstFaceIndex: len(l.f),
@@ -193,14 +193,14 @@ func (l *WavefrontObjLoader) startFaceset(material string) {
 	l.facesets = append(l.facesets, fs)
 }
 
-func (l *WavefrontObjLoader) endFaceset() {
+func (l *WavefrontObjReader) endFaceset() {
 	if len(l.facesets) > 0 {
 		lastIdx := len(l.facesets) - 1
 		l.facesets[lastIdx].faceCount = len(l.f) - l.facesets[lastIdx].firstFaceIndex
 	}
 }
 
-func (l *WavefrontObjLoader) startGroup(name string) {
+func (l *WavefrontObjReader) startGroup(name string) {
 	g := group{
 		name:              name,
 		firstFacesetIndex: len(l.facesets),
@@ -208,7 +208,7 @@ func (l *WavefrontObjLoader) startGroup(name string) {
 	}
 	l.g = append(l.g, g)
 }
-func (l *WavefrontObjLoader) endGroup() {
+func (l *WavefrontObjReader) endGroup() {
 	if len(l.g) > 0 {
 		idx := len(l.g) - 1
 		l.g[idx].facesetCount = len(l.facesets) - l.g[idx].firstFacesetIndex
