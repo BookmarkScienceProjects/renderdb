@@ -11,11 +11,3 @@ type objBuffer struct {
 	f      []face
 	g      []group
 }
-
-func (b *objBuffer) BoundingBox() vec3.Box {
-	box := vec3.Box{}
-	for _, v := range b.v {
-		box.Join(&vec3.Box{v, v})
-	}
-	return box
-}

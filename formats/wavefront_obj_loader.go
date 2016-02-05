@@ -93,6 +93,9 @@ func (l *WavefrontObjLoader) Load(reader io.Reader) error {
 			case "vt":
 			case "vp":
 				break
+
+			default:
+				err = fmt.Errorf("Unknown keyword '%s'", fields[0])
 			}
 
 			if err != nil {
