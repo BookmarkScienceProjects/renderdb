@@ -55,14 +55,7 @@ type faceset struct {
 	material       string
 }
 
-// group represents a named set of facesets.
-type group struct {
-	name              string
-	firstFacesetIndex int
-	facesetCount      int
-}
-
-type WavefrontObjLoader struct {
+type objBuffer struct {
 	facesets []faceset
 	// All the below maps directly to OBJ-keywords
 	mtllib string
@@ -70,6 +63,10 @@ type WavefrontObjLoader struct {
 	vn     []vec3.T
 	f      []face
 	g      []group
+}
+
+type WavefrontObjLoader struct {
+	objBuffer
 }
 
 func (l *WavefrontObjLoader) Load(reader io.Reader) error {
