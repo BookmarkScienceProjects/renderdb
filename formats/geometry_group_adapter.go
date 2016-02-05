@@ -1,6 +1,10 @@
 package formats
 
-import "github.com/ungerik/go3d/float64/vec3"
+import (
+	"io"
+
+	"github.com/ungerik/go3d/float64/vec3"
+)
 
 // geometryGroupAdapter implements the GeometryGroup interface
 // given an objBuffer and a group.
@@ -23,4 +27,8 @@ func (a *geometryGroupAdapter) Name() string {
 
 func (a *geometryGroupAdapter) BoundingBox() vec3.Box {
 	return a.buffer.BoundingBox()
+}
+
+func (a *geometryGroupAdapter) Write(w io.Writer) error {
+	return a.buffer.Write(w)
 }
