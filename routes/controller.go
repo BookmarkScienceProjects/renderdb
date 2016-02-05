@@ -2,7 +2,7 @@ package routes
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -10,23 +10,22 @@ import (
 
 type RequestContext struct {
 	Vars map[string]string
-	Body []byte
+	Body io.ReadCloser
 }
 
 type Controller struct{}
 
 func (c *Controller) CreateContext(r *http.Request) (*RequestContext, HttpError) {
-	var err error
-	defer r.Body.Close()
-
 	ctx := new(RequestContext)
-	ctx.Body, err = ioutil.ReadAll(r.Body)
+	ctx.Body = r.Body
 	ctx.Vars = mux.Vars(r)
-	return ctx, EncapulateIfError(err, http.StatusBadRequest)
+	return ctx, nil
 }
 
 func (c *Controller) ParseBody(ctx *RequestContext, v interface{}) HttpError {
-	err := json.Unmarshal(ctx.Body, &v)
+	defer ctx.Body.Close()
+	decoder := json.NewDecoder(ctx.Body)
+	err := decoder.Decode(&v)
 	return EncapulateIfError(err, http.StatusBadRequest)
 }
 

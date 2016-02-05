@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/larsmoa/renderdb/formats"
 	"github.com/larsmoa/renderdb/geometry"
 	"github.com/larsmoa/renderdb/geometry/options"
 
@@ -103,6 +104,7 @@ type GeometryController struct {
 func (c *GeometryController) Init(repo geometry.Repository, route *mux.Router) {
 	c.repo = repo
 	route.Path("/geometry").Methods("POST").HandlerFunc(c.HandlePostGeometry)
+	route.Path("/geometry/obj").Methods("POST").HandlerFunc(c.HandlePostObjFile)
 	route.Path("/geometry/view").Methods("POST").HandlerFunc(c.HandlePostView)
 }
 
@@ -179,4 +181,31 @@ func (c *GeometryController) HandlePostView(w http.ResponseWriter, r *http.Reque
 	}
 
 	c.WriteResponse(w, objects)
+}
+
+func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Request) {
+	// Parse body
+	ctx, httpErr := c.CreateContext(r)
+	if httpErr != nil {
+		c.HandleError(w, httpErr)
+		return
+	}
+
+	defer ctx.Body.Close()
+	reader := formats.WavefrontObjReader{}
+	err := reader.Read(ctx.Body)
+	if err != nil {
+		c.HandleError(w, NewHttpError(err, http.StatusBadRequest))
+		return
+	}
+
+	groupCh := reader.Groups()
+	for g := range groupCh {
+		fmt.Println(g.Name())
+		err = g.Write(w)
+		if err != nil {
+			c.HandleError(w, NewHttpError(err, http.StatusInternalServerError))
+			return
+		}
+	}
 }

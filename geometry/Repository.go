@@ -52,7 +52,6 @@ func (r *defaultRepository) loadFromDatabase() error {
 				treeEntry := new(rtreeEntry)
 				treeEntry.id = d.id
 				treeEntry.bounds = conversion.BoxToRect(&d.bounds)
-				log.Printf("%d: %v\n", treeEntry.id, treeEntry.bounds)
 				r.tree.Insert(treeEntry)
 			}
 		case err, more = <-errCh:
