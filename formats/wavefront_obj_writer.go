@@ -55,14 +55,17 @@ func writeFace(w io.Writer, f face) error {
 
 	for _, c := range f.corners {
 		if c.normalIndex != -1 {
-			_, err := io.WriteString(w, fmt.Sprintf(" %d//%d", c.vertexIndex, c.normalIndex))
-			if err != nil {
-				return err
-			}
+			_, err = io.WriteString(w,
+				fmt.Sprintf(" %d//%d", c.vertexIndex+1, c.normalIndex+1))
+		} else {
+			_, err = io.WriteString(w, fmt.Sprintf(" %d", c.vertexIndex+1))
+		}
+		if err != nil {
+			return err
 		}
 	}
-
-	return nil
+	_, err = io.WriteString(w, "\n")
+	return err
 }
 
 func writeVectors(w io.Writer, format string, vectors []vec3.T) error {
