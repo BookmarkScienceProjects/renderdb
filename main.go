@@ -15,6 +15,7 @@ import (
 )
 
 type applicationArgs struct {
+	serverAddress      string
 	dbConnectionString string
 	dbDriver           string
 }
@@ -27,6 +28,7 @@ type application struct {
 }
 
 func (a *application) parseArguments() error {
+	flag.StringVar(&a.args.serverAddress, "serverAddress", ":8080", "")
 	flag.StringVar(&a.args.dbDriver, "driver", "", "")
 	flag.StringVar(&a.args.dbConnectionString, "datasource", "", "")
 	flag.Parse()
@@ -100,8 +102,8 @@ func (a *application) run() (int, error) {
 	}
 
 	http.Handle("/", a.router)
-	fmt.Printf("Serving...")
-	err = http.ListenAndServe(":8080", nil)
+	fmt.Printf("Serving at %s...", a.args.serverAddress)
+	err = http.ListenAndServe(a.args.serverAddress, nil)
 	if err != nil {
 		return 5, err
 	}
