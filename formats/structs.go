@@ -16,14 +16,6 @@ func (e lineError) Error() string {
 	return fmt.Sprintf("Line #%d: %v ('%s')", e.lineNumber, e.line, e.err)
 }
 
-// material represents the name of a material used by face.
-type material string
-
-const (
-	// Special material representing an undefined material
-	undefinedMaterial material = ""
-)
-
 // faceCorner represents a 'corner' (or vertex) in a face
 type faceCorner struct {
 	vertexIndex int
