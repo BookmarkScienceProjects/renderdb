@@ -8,9 +8,6 @@
 {
  
 	"command": "go",
-    "options": {
-        "cwd": "${fileDirname}"
-    },
 	"isShellCommand": true,
 
     "tasks": [
@@ -38,7 +35,7 @@
             "taskName":"test",
             "isBuildCommand": false,
             "isTestCommand": true,
-            "args": [ "-v"],
+            "args": ["-v", "./..."],
             
             "problemMatcher": {
 		      "owner": "go",
