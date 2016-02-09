@@ -208,11 +208,13 @@ func TestGroup_BuildFormats_GroupWithTwoFacesets_ReturnsCorrectSubset(t *testing
 	assert.EqualValues(t,
 		[]vec3.T{
 			vec3.T{0, 0, 0}, vec3.T{2, 2, 2}, vec3.T{4, 4, 4}, vec3.T{6, 6, 6},
+			vec3.T{1, 1, 1}, vec3.T{3, 3, 3}, vec3.T{5, 5, 5}, vec3.T{7, 7, 7},
 		},
 		buffer.v)
 	assert.EqualValues(t,
 		[]vec3.T{
 			vec3.T{0, 0, 0}, vec3.T{-2, -2, -2}, vec3.T{-4, -4, -4}, vec3.T{-6, -6, -6},
+			vec3.T{-1, -1, -1}, vec3.T{-3, -3, -3}, vec3.T{-5, -5, -5}, vec3.T{-7, -7, -7},
 		},
 		buffer.vn)
 	assert.Equal(t, 2, len(buffer.facesets))
