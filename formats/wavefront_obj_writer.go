@@ -13,8 +13,8 @@ func (b *objBuffer) Write(w io.Writer) error {
 	var err error
 	_, err = io.WriteString(w,
 		fmt.Sprintf("# Exported using RenderDB\n"+
-			"# %d vertices, %d normals, %d faces (%d facesets)\n",
-			len(b.v), len(b.vn), len(b.f), len(b.facesets)))
+			"# %d vertices, %d normals, %d faces\n",
+			len(b.v), len(b.vn), len(b.f)))
 	if err != nil {
 		return err
 	}
@@ -86,26 +86,7 @@ func (b *objBuffer) writeGroup(w io.Writer, g group) error {
 	if err != nil {
 		return err
 	}
-	for i := g.firstFacesetIndex; i < g.firstFacesetIndex+g.facesetCount; i++ {
-		fs := b.facesets[i]
-		if err = b.writeFaceset(w, fs); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (b *objBuffer) writeFaceset(w io.Writer, fs faceset) error {
-	var err error
-	if fs.material != "" {
-		_, err = io.WriteString(w, fmt.Sprintf("usemtl %s\n", fs.material))
-		if err != nil {
-			return err
-		}
-	}
-
-	for i := fs.firstFaceIndex; i < fs.firstFaceIndex+fs.faceCount; i++ {
+	for i := g.firstFaceIndex; i < g.firstFaceIndex+g.faceCount; i++ {
 		if err = writeFace(w, b.f[i]); err != nil {
 			return err
 		}

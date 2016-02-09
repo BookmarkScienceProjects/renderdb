@@ -25,19 +25,18 @@ func TestWavefrontObjReader_ProcessMaterialLibrary_AlreadySet_ReturnsError(t *te
 	assert.Error(t, loader.processMaterialLibrary("mtllib materials.mtl"))
 }
 
-func TestWavefrontObjReader_ProcessGroup_ValidLine_EndsAndStartsFaceset(t *testing.T) {
+func TestWavefrontObjReader_ProcessGroup_ValidLine_EndsAndStartsGroup(t *testing.T) {
 	// Arrange
 	loader := WavefrontObjReader{}
 	loader.f = []face{face{}}
-	loader.facesets = []faceset{faceset{}}
-	loader.g = append(loader.g, group{firstFacesetIndex: 0, facesetCount: -1})
+	loader.g = append(loader.g, group{firstFaceIndex: 0, faceCount: -1})
 
 	// Act
 	err := loader.processGroup("g   group")
 
 	// Assert
 	assert.NoError(t, err)
-	assert.Equal(t, 1, loader.g[0].facesetCount)
+	assert.Equal(t, 1, loader.g[0].faceCount)
 	assert.Equal(t, 2, len(loader.g))
 	assert.Equal(t, "group", loader.g[1].name)
 }
@@ -48,10 +47,9 @@ func TestWavefrontObjReader_ProcessGroup_InvalidLine_ReturnsError(t *testing.T) 
 	assert.Error(t, err)
 }
 
-func TestWavefrontObjReader_ProcessUseMaterial_ValidLine_EndsAndStartsFaceset(t *testing.T) {
+func TestWavefrontObjReader_ProcessUseMaterial_ValidLine_SetsActiveMaterial(t *testing.T) {
 	// Arrange
 	loader := WavefrontObjReader{}
-	loader.facesets = append(loader.facesets, faceset{faceCount: -1})
 	loader.f = []face{face{}}
 
 	// Act
@@ -59,9 +57,7 @@ func TestWavefrontObjReader_ProcessUseMaterial_ValidLine_EndsAndStartsFaceset(t 
 
 	// Assert
 	assert.NoError(t, err)
-	assert.Equal(t, 1, loader.facesets[0].faceCount)
-	assert.Equal(t, 2, len(loader.facesets))
-	assert.Equal(t, "material_name", loader.facesets[1].material)
+	assert.Equal(t, "material_name", loader.activeMaterial)
 }
 
 func TestWavefrontObjReader_ProcessFace_InvalidFields_ReturnsError(t *testing.T) {
@@ -156,8 +152,8 @@ func TestWavefrontObjReader_StartGroup_StartsNewGroup(t *testing.T) {
 	// Assert
 	assert.Equal(t, 1, len(loader.g))
 	assert.Equal(t, "MyGroup", loader.g[0].name)
-	assert.Equal(t, 0, loader.g[0].firstFacesetIndex)
-	assert.Equal(t, -1, loader.g[0].facesetCount)
+	assert.Equal(t, 0, loader.g[0].firstFaceIndex)
+	assert.Equal(t, -1, loader.g[0].faceCount)
 }
 
 func TestWavefrontObjReader_EndGroup_NoGroups_DoesNotPanic(t *testing.T) {
@@ -167,71 +163,35 @@ func TestWavefrontObjReader_EndGroup_NoGroups_DoesNotPanic(t *testing.T) {
 	})
 }
 
-func TestWavefrontObjReader_EndGroup_GroupStarted_UpdatesFacesetCount(t *testing.T) {
+func TestWavefrontObjReader_EndGroup_GroupStarted_UpdatesFaceCount(t *testing.T) {
 	// Arrange
 	loader := WavefrontObjReader{}
 	loader.g = append(loader.g, group{
-		name:              "Test",
-		firstFacesetIndex: 0,
-		facesetCount:      -1,
-	})
-	loader.f = []face{face{}}
-
-	// Act
-	loader.facesets = append(loader.facesets, faceset{firstFaceIndex: 0, faceCount: 1})
-	loader.endGroup()
-
-	// Assert
-	assert.Equal(t, 1, loader.g[0].facesetCount)
-}
-
-func TestWavefrontObjReader_StartFaceset_StartsNewFaceset(t *testing.T) {
-	// Arrange
-	loader := WavefrontObjReader{}
-
-	// Act
-	loader.startFaceset("SomeMaterial")
-
-	// Assert
-	assert.Equal(t, 1, len(loader.facesets))
-	assert.Equal(t, "SomeMaterial", loader.facesets[0].material)
-	assert.Equal(t, 0, loader.facesets[0].firstFaceIndex)
-	assert.Equal(t, -1, loader.facesets[0].faceCount)
-}
-
-func TestWavefrontObjReader_EndFaceset_NoFacesets_DoesNotPanic(t *testing.T) {
-	loader := WavefrontObjReader{}
-	assert.NotPanics(t, func() {
-		loader.endFaceset()
-	})
-}
-
-func TestWavefrontObjReader_EndFaceset_FacesetStarted_UpdatesFaceCount(t *testing.T) {
-	// Arrange
-	loader := WavefrontObjReader{}
-	loader.facesets = append(loader.facesets, faceset{
-		material:       "Test",
+		name:           "Test",
 		firstFaceIndex: 0,
 		faceCount:      -1,
 	})
 
 	// Act
-	loader.f = append(loader.f, face{})
-	loader.endFaceset()
+	loader.f = append(loader.f, createFace("mat", 1, 2, 3))
+	loader.endGroup()
 
 	// Assert
-	assert.Equal(t, 1, loader.facesets[0].faceCount)
+	assert.Equal(t, []group{group{"Test", 0, 1}}, loader.g)
 }
 
-func TestWavefrontObjReader_EndFaceset_EmptyFaceset_IsDiscarded(t *testing.T) {
+func TestWavefrontObjReader_ProcessFace_UsesActiveMaterial(t *testing.T) {
 	// Arrange
 	loader := WavefrontObjReader{}
+	loader.activeMaterial = "my-material"
 
 	// Act
-	loader.endFaceset()
+	err := loader.processFace([]string{"1", "2", "3"})
 
 	// Assert
-	assert.Empty(t, loader.facesets)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(loader.f))
+	assert.Equal(t, "my-material", loader.f[0].material)
 }
 
 func TestWavefrontObjReader_EndGroup_EmptyGroup_IsDiscarded(t *testing.T) {
@@ -243,6 +203,6 @@ func TestWavefrontObjReader_EndGroup_EmptyGroup_IsDiscarded(t *testing.T) {
 	loader.endGroup()
 
 	// Assert
-	assert.Empty(t, loader.facesets)
+	assert.Empty(t, loader.f)
 	assert.Empty(t, loader.g)
 }

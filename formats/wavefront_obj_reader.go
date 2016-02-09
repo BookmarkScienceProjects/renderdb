@@ -44,8 +44,6 @@ func init() {
 // 'g'-keyword.
 type WavefrontObjReader struct {
 	objBuffer
-
-	lastMaterial string
 }
 
 func (l *WavefrontObjReader) Read(reader io.Reader) error {
@@ -93,7 +91,6 @@ func (l *WavefrontObjReader) Read(reader io.Reader) error {
 			return lineError{i, line, err}
 		}
 	}
-	l.endFaceset()
 	l.endGroup()
 	return scanner.Err()
 }
@@ -163,7 +160,7 @@ func (l *WavefrontObjReader) processFace(fields []string) error {
 		return fmt.Errorf("Expected %d fields, but got %d", 3, len(fields))
 	}
 
-	f := face{make([]faceCorner, len(fields))}
+	f := face{make([]faceCorner, len(fields)), l.activeMaterial}
 	for i, field := range fields {
 		corner, err := parseFaceField(field)
 		if err != nil {
@@ -197,59 +194,28 @@ func (l *WavefrontObjReader) processMaterialLibrary(line string) error {
 
 func (l *WavefrontObjReader) processUseMaterial(line string) error {
 	if match := usemtlRegex.FindStringSubmatch(line); match != nil {
-		l.endFaceset()
-		l.startFaceset(match[1])
-		l.lastMaterial = match[1]
+		l.activeMaterial = match[1]
 		return nil
 	}
 	return fmt.Errorf("Could not parse 'usemtl'-line")
 }
 
-func (l *WavefrontObjReader) startFaceset(material string) {
-	fs := faceset{
-		material:       material,
+func (l *WavefrontObjReader) startGroup(name string) {
+	g := group{
+		name:           name,
 		firstFaceIndex: len(l.f),
 		faceCount:      -1,
 	}
-	l.facesets = append(l.facesets, fs)
-}
-
-func (l *WavefrontObjReader) endFaceset() {
-	if len(l.facesets) > 0 {
-		lastIdx := len(l.facesets) - 1
-		count := len(l.f) - l.facesets[lastIdx].firstFaceIndex
-		if count > 0 {
-			l.facesets[lastIdx].faceCount = len(l.f) - l.facesets[lastIdx].firstFaceIndex
-		} else {
-			// Empty faceset, discard
-			if len(l.facesets) > 0 {
-				l.facesets = l.facesets[1:]
-			} else {
-				l.facesets = nil
-			}
-		}
-	}
-}
-
-func (l *WavefrontObjReader) startGroup(name string) {
-	g := group{
-		name:              name,
-		firstFacesetIndex: len(l.facesets),
-		facesetCount:      -1,
-	}
 	l.g = append(l.g, g)
-	// End current faceset and start a new one (if the next line
-	// is a 'usemtl'-line the faceset will be discarded)
-	//l.startFaceset(l.lastMaterial)
 }
 
 func (l *WavefrontObjReader) endGroup() {
 	//l.endFaceset()
 	if len(l.g) > 0 {
 		idx := len(l.g) - 1
-		count := len(l.facesets) - l.g[idx].firstFacesetIndex
+		count := len(l.f) - l.g[idx].firstFaceIndex
 		if count > 0 {
-			l.g[idx].facesetCount = count
+			l.g[idx].faceCount = count
 		} else {
 			// Empty group, discard
 			if len(l.g) > 0 {
