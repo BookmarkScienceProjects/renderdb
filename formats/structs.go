@@ -46,7 +46,7 @@ type objBuffer struct {
 }
 
 func (b *objBuffer) BoundingBox() vec3.Box {
-	box := vec3.Box{}
+	box := vec3.Box{vec3.MaxVal, vec3.MinVal}
 	for _, v := range b.v {
 		box.Join(&vec3.Box{v, v})
 	}
