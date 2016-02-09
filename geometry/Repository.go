@@ -8,7 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/larsmoa/renderdb/conversion"
 	"github.com/larsmoa/renderdb/geometry/options"
-	"github.com/ungerik/go3d/vec3"
+	"github.com/ungerik/go3d/float64/vec3"
 )
 
 // Repository represents a spatial database with fast spatial lookups.
@@ -119,7 +119,7 @@ func (r *defaultRepository) GetInsideVolume(bounds vec3.Box, opts ...interface{}
 						return
 					}
 					o.metadata = data.metadata
-					o.geometryText = data.geometryText
+					o.geometryData = data.geometryData
 					geometryCh <- o
 				}
 

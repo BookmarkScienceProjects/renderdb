@@ -11,7 +11,10 @@ import (
 // operation fails.
 func (b *objBuffer) Write(w io.Writer) error {
 	var err error
-	_, err = io.WriteString(w, "# Exported using RenderDB\n")
+	_, err = io.WriteString(w,
+		fmt.Sprintf("# Exported using RenderDB\n"+
+			"# %d vertices, %d normals, %d faces (%d facesets)\n",
+			len(b.v), len(b.vn), len(b.f), len(b.facesets)))
 	if err != nil {
 		return err
 	}
@@ -21,7 +24,6 @@ func (b *objBuffer) Write(w io.Writer) error {
 			return err
 		}
 	}
-
 	if err = b.writeVertices(w); err != nil {
 		return err
 	}
@@ -84,7 +86,6 @@ func (b *objBuffer) writeGroup(w io.Writer, g group) error {
 	if err != nil {
 		return err
 	}
-
 	for i := g.firstFacesetIndex; i < g.firstFacesetIndex+g.facesetCount; i++ {
 		fs := b.facesets[i]
 		if err = b.writeFaceset(w, fs); err != nil {

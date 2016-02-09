@@ -6,28 +6,28 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/ungerik/go3d/vec3"
+	"github.com/ungerik/go3d/float64/vec3"
 )
 
 const (
 	insertGeometrySQL string = `INSERT INTO geometry_objects(
             bounds_x_min, bounds_y_min, bounds_z_min, 
             bounds_x_max, bounds_y_max, bounds_z_max, 
-            geometry_text, metadata) 
+            geometry_data, metadata) 
           VALUES (?, ?, ?, 
                   ?, ?, ?, 
                   ?, ?)`
 	selectGeometrySQL string = `SELECT id, 
                 bounds_x_min, bounds_y_min, bounds_z_min, 
                 bounds_x_max, bounds_y_max, bounds_z_max,
-                geometry_text, metadata 
+                geometry_data, metadata 
             FROM geometry_objects`
 )
 
 type data struct {
 	id           int64
 	bounds       vec3.Box
-	geometryText string
+	geometryData []byte
 	metadata     map[string]interface{}
 }
 
@@ -62,7 +62,7 @@ func (database *sqlDatabase) add(o Object) (int64, error) {
 	result, err := database.db.Exec(insertGeometrySQL,
 		bounds_min[0], bounds_min[1], bounds_min[2],
 		bounds_max[0], bounds_max[1], bounds_max[2],
-		o.GeometryText(), jsonTxt)
+		o.GeometryData(), jsonTxt)
 	if err != nil {
 		return -1, err
 	}
@@ -79,7 +79,7 @@ func parseDataRow(r row) (*data, error) {
 	err := r.Scan(&data.id,
 		&data.bounds.Min[0], &data.bounds.Min[1], &data.bounds.Min[2],
 		&data.bounds.Max[0], &data.bounds.Max[1], &data.bounds.Max[2],
-		&data.geometryText, &jsonTxt)
+		&data.geometryData, &jsonTxt)
 	if err != nil {
 		return nil, err
 	}

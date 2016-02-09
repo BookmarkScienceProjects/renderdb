@@ -4,7 +4,7 @@ import (
 	"sort"
 
 	"github.com/larsmoa/renderdb/generators"
-	"github.com/ungerik/go3d/vec3"
+	"github.com/ungerik/go3d/float64/vec3"
 )
 
 type byDistance struct {
@@ -13,8 +13,8 @@ type byDistance struct {
 	indices []int
 }
 
-func sqDistToClosestPointOnBox(p *vec3.T, box *vec3.Box) float32 {
-	closestComponent := func(i int) float32 {
+func sqDistToClosestPointOnBox(p *vec3.T, box *vec3.Box) float64 {
+	closestComponent := func(i int) float64 {
 		if p[i] < box.Min[i] {
 			return box.Min[i]
 		} else if p[i] > box.Max[i] {

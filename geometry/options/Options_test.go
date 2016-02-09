@@ -6,7 +6,7 @@ import (
 	"github.com/dhconnelly/rtreego"
 	"github.com/larsmoa/renderdb/conversion"
 	"github.com/stretchr/testify/assert"
-	"github.com/ungerik/go3d/vec3"
+	"github.com/ungerik/go3d/float64/vec3"
 )
 
 type stubFilterGeometryOption struct {

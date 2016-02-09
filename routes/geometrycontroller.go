@@ -1,34 +1,36 @@
 package routes
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/larsmoa/renderdb/formats"
 	"github.com/larsmoa/renderdb/geometry"
 	"github.com/larsmoa/renderdb/geometry/options"
 
 	"github.com/gorilla/mux"
-	"github.com/ungerik/go3d/vec3"
+	"github.com/ungerik/go3d/float64/vec3"
 )
 
 type BoundsPayload struct {
-	Min [3]float32 `json:"min"`
-	Max [3]float32 `json:"max"`
+	Min [3]float64 `json:"min"`
+	Max [3]float64 `json:"max"`
 }
 
 type geometryRequestPayload struct {
 	Bounds       *BoundsPayload `json:"bounds"`
-	GeometryText string         `json:"geometryText"`
+	GeometryData []byte         `json:"geometryData"`
 	Metadata     string         `json:"metadata"`
 }
 
 func (p *geometryRequestPayload) VerifyPayload() HttpError {
 	if p.Bounds == nil {
 		return NewHttpError(fmt.Errorf("Missing field 'bounds'"), http.StatusBadRequest)
-	} else if p.GeometryText == "" {
-		return NewHttpError(fmt.Errorf("Missing field 'geometryText'"), http.StatusBadRequest)
+	} else if p.GeometryData == nil {
+		return NewHttpError(fmt.Errorf("Missing field 'geometryData'"), http.StatusBadRequest)
 	} else if p.Metadata == "" {
 		return NewHttpError(fmt.Errorf("Missing field 'metadata'"), http.StatusBadRequest)
 	}
@@ -43,8 +45,8 @@ func (p *geometryRequestPayloadWrapper) Bounds() *vec3.Box {
 	return &vec3.Box{p.payload.Bounds.Min, p.payload.Bounds.Max}
 }
 
-func (p *geometryRequestPayloadWrapper) GeometryText() string {
-	return p.payload.GeometryText
+func (p *geometryRequestPayloadWrapper) GeometryData() []byte {
+	return p.payload.GeometryData
 }
 
 func (p *geometryRequestPayloadWrapper) Metadata() interface{} {
@@ -79,7 +81,7 @@ func newViewResponsePayload(obj geometry.Object) geometryViewResponsePayload {
 	payload := geometryViewResponsePayload{}
 	bounds := obj.Bounds()
 	payload.Bounds = &BoundsPayload{bounds.Min, bounds.Max}
-	payload.GeometryText = obj.GeometryText()
+	payload.GeometryData = obj.GeometryData()
 	buffer, _ := json.Marshal(obj.Metadata())
 	payload.Metadata = string(buffer)
 	return payload
@@ -199,13 +201,30 @@ func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	f, _ := os.Create("/tmp/test.obj")
+	reader.Write(f)
+
+	storedObjects := make(map[int64]int)
 	groupCh := reader.Groups()
 	for g := range groupCh {
-		fmt.Println(g.Name())
-		err = g.Write(w)
+		bounds := g.BoundingBox()
+		buf := bytes.Buffer{}
+		err = g.Write(&buf)
 		if err != nil {
 			c.HandleError(w, NewHttpError(err, http.StatusInternalServerError))
 			return
 		}
+
+		var id int64
+		obj := geometry.NewSimpleObject(bounds, buf.Bytes(), nil)
+		id, err = c.repo.Add(obj)
+		if err != nil {
+			c.HandleError(w, NewHttpError(err, http.StatusInternalServerError))
+			return
+		}
+		storedObjects[id] = buf.Len()
 	}
+
+	bytes, _ := json.Marshal(storedObjects)
+	w.Write(bytes)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	"github.com/ungerik/go3d/float64/vec3"
 )
 
 func makeTimeoutChan(ms time.Duration) <-chan bool {
@@ -29,11 +30,16 @@ func (f *databaseFixture) Setup(t *testing.T) {
 	assert.NoError(t, err, "Could not open database")
 
 	f.db.MustExec(`
-        CREATE TABLE geometry_objects(
-            id int PRIMARY KEY,
-            geometry_text string NOT NULL,
-            metadata string NOT NULL
-        )`)
+        CREATE TABLE IF NOT EXISTS geometry_objects(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bounds_x_min REAL NOT NULL,
+                bounds_y_min REAL NOT NULL,
+                bounds_z_min REAL NOT NULL,
+                bounds_x_max REAL NOT NULL,
+                bounds_y_max REAL NOT NULL,
+                bounds_z_max REAL NOT NULL,
+                geometry_data BLOB NOT NULL,
+                metadata STRING NOT NULL)`)
 }
 
 func (f *databaseFixture) Teardown(t *testing.T) {
@@ -61,6 +67,8 @@ func TestDatabase_Add_ValidElement_InsertsElement(t *testing.T) {
 	defer f.Teardown(t)
 	database := sqlDatabase{f.db}
 	obj := new(SimpleObject)
+	obj.bounds = &vec3.Box{}
+	obj.geometryData = []byte{1}
 
 	// Act
 	id, err := database.add(obj)
@@ -111,11 +119,38 @@ func TestDatabase_GetMany_ValidId_ReturnsData(t *testing.T) {
 	f.Setup(t)
 	defer f.Teardown(t)
 	database := sqlDatabase{f.db}
-	r := f.db.MustExec("INSERT INTO geometry_objects(id, geometry_text, metadata) VALUES(1, '','{}')")
+	r, _ := f.db.Exec(insertGeometrySQL, 0, 0, 0, 1, 1, 1, "ABC", "{}")
 	id, _ := r.LastInsertId()
-
+	rows, _ := f.db.Query("SELECT id FROM geometry_objects WHERE ID IN (1)")
+	defer rows.Close()
+	for rows.Next() {
+		rows.Scan(&id)
+	}
 	// Act
 	dataCh, errCh := database.getMany([]int64{id})
+
+	// Assert
+	select {
+	case data := <-dataCh:
+		assert.NotNil(t, data)
+	case err := <-errCh:
+		assert.Fail(t, "Did not expect to receive error", "%v", err)
+	case <-makeTimeoutChan(time.Second):
+		assert.Fail(t, "Timeout while waiting for data")
+	}
+}
+
+func TestDatabase_GetAll_PopulatedDb_ReturnsData(t *testing.T) {
+	// Arrange
+	f := databaseFixture{}
+	f.Setup(t)
+	defer f.Teardown(t)
+	database := sqlDatabase{f.db}
+	_, err := f.db.Exec(insertGeometrySQL, 0, 0, 0, 1, 1, 1, "", "{}")
+	assert.NoError(t, err)
+
+	// Act
+	dataCh, errCh := database.getAll()
 
 	// Assert
 	select {

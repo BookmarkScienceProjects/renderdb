@@ -7,7 +7,7 @@ import (
 	"github.com/dhconnelly/rtreego"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/ungerik/go3d/vec3"
+	"github.com/ungerik/go3d/float64/vec3"
 )
 
 type mockDatabase struct {
@@ -21,6 +21,11 @@ func (m *mockDatabase) add(o Object) (int64, error) {
 
 func (m *mockDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
 	args := m.Called(ids)
+	return args.Get(0).(chan *data), args.Get(1).(chan error)
+}
+
+func (m *mockDatabase) getAll() (<-chan *data, <-chan error) {
+	args := m.Called()
 	return args.Get(0).(chan *data), args.Get(1).(chan error)
 }
 
@@ -118,7 +123,7 @@ func TestRepository_GetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.
 	objBounds := vec3.Box{vec3.T{1, 1, 1}, vec3.T{2, 2, 2}}
 	obj := &SimpleObject{
 		bounds:       &objBounds,
-		geometryText: "",
+		geometryData: []byte{},
 		metadata:     nil,
 	}
 
@@ -145,7 +150,7 @@ func TestRepository_GetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) 
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj := &SimpleObject{
 		bounds:       &objBounds,
-		geometryText: "",
+		geometryData: []byte{},
 		metadata:     nil,
 	}
 
@@ -173,7 +178,7 @@ func TestRepository_GetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj := &SimpleObject{
 		bounds:       &objBounds,
-		geometryText: "",
+		geometryData: []byte{},
 		metadata:     nil,
 	}
 
@@ -199,12 +204,12 @@ func TestRepository_GetInsideVolume_DatabaseReturnsOneThenError_ReturnsError(t *
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj1 := &SimpleObject{
 		bounds:       &objBounds,
-		geometryText: "1",
+		geometryData: []byte("1"),
 		metadata:     nil,
 	}
 	obj2 := &SimpleObject{
 		bounds:       &objBounds,
-		geometryText: "2",
+		geometryData: []byte("2"),
 		metadata:     nil,
 	}
 
@@ -233,12 +238,12 @@ func TestRepository_GetInsideVolume_WithFilterGeometryOptions_ReturnsFiltered(t 
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj1 := &SimpleObject{
 		bounds:       &objBounds,
-		geometryText: "1",
+		geometryData: []byte("1"),
 		metadata:     nil,
 	}
 	obj2 := &SimpleObject{
 		bounds:       &objBounds,
-		geometryText: "2",
+		geometryData: []byte("2"),
 		metadata:     nil,
 	}
 
@@ -265,4 +270,20 @@ func TestRepository_GetInsideVolume_WithFilterGeometryOptions_ReturnsFiltered(t 
 	mockOptions.AssertExpectations(t)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(result))
+}
+
+func TestRepository_LoadFromDatabase_LoadsObjectsFromDatabase(t *testing.T) {
+	// Arrange
+	mockDb := new(mockDatabase)
+	mockDb.On("getAll").Return(createGetManyResult(&data{id: 1}, &data{id: 2}))
+	rtree := rtreego.NewTree(3, 5, 10)
+	repo := defaultRepository{mockDb, rtree}
+
+	// Act
+	err := repo.loadFromDatabase()
+
+	// Assert
+	mockDb.AssertExpectations(t)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, rtree.Size())
 }

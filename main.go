@@ -60,7 +60,7 @@ func (a *application) initializeDatabase() error {
                 bounds_x_max REAL NOT NULL,
                 bounds_y_max REAL NOT NULL,
                 bounds_z_max REAL NOT NULL,
-                geometry_text STRING NOT NULL,
+                geometry_data BLOB NOT NULL,
                 metadata STRING NOT NULL)`)
 	return err
 }

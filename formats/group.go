@@ -27,15 +27,14 @@ func (g *group) buildBuffers(parentBuffer *objBuffer) *objBuffer {
 
 	for i := g.firstFacesetIndex; i < g.firstFacesetIndex+g.facesetCount; i++ {
 		originalFs := parentBuffer.facesets[i]
-
 		// Create new faceset
 		fs := faceset{}
 		fs.firstFaceIndex = len(buffer.f)
 		fs.faceCount = originalFs.faceCount
 		fs.material = originalFs.material
 
-		for j := 0; j < fs.faceCount; j++ {
-			originalFace := parentBuffer.f[g.firstFacesetIndex+j]
+		for j := fs.firstFaceIndex; j < fs.firstFaceIndex+fs.faceCount; j++ {
+			originalFace := parentBuffer.f[j]
 
 			// Create new face
 			f := face{}

@@ -21,13 +21,31 @@ var mtllibRegex *regexp.Regexp
 func init() {
 	faceVertexOnlyRegex = regexp.MustCompile(`^(\d+)$`)
 	faceVertexAndNormalRegex = regexp.MustCompile(`^(\d+)//(\d+)$`)
-	groupRegex = regexp.MustCompile(`^g\s+(.*)$`)
+	groupRegex = regexp.MustCompile(`^g\s*(.*)$`)
 	usemtlRegex = regexp.MustCompile(`^usemtl\s+(.*)$`)
 	mtllibRegex = regexp.MustCompile(`^mtllib\s+(.*)$`)
 }
 
+// WavefrontObjReader reads Wavefront OBJ files. The reader supports the
+// following keywords:
+// - v
+// - vn
+// - f
+// - g
+// - mtllib
+// - usemtl
+// The following keywords are ignored:
+// - o
+// - s
+// - vt
+// - vp
+// - Comments (#)
+// The reader supports splitting the OBJ file into 'groups' defined by the
+// 'g'-keyword.
 type WavefrontObjReader struct {
 	objBuffer
+
+	lastMaterial string
 }
 
 func (l *WavefrontObjReader) Read(reader io.Reader) error {
@@ -36,45 +54,47 @@ func (l *WavefrontObjReader) Read(reader io.Reader) error {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		i++
+		// Ignore comments
+		if hashPos := strings.IndexRune(line, '#'); hashPos != -1 {
+			line = line[0:hashPos]
+		}
 		if len(line) == 0 {
 			continue
 		}
 
-		if !strings.HasPrefix(line, "#") { // Ignore comments
-			var err error
-			fields := strings.Fields(line)
+		var err error
+		fields := strings.Fields(line)
+		switch strings.ToLower(fields[0]) {
+		case "v":
+			err = l.processVertex(fields[1:])
+		case "vn":
+			err = l.processVertexNormal(fields[1:])
+		case "f":
+			err = l.processFace(fields[1:])
+		case "g":
+			err = l.processGroup(line)
+		case "mtllib":
+			err = l.processMaterialLibrary(line)
+		case "usemtl":
+			err = l.processUseMaterial(line)
 
-			switch strings.ToLower(fields[0]) {
-			case "v":
-				err = l.processVertex(fields[1:])
-			case "vn":
-				err = l.processVertexNormal(fields[1:])
-			case "f":
-				err = l.processFace(fields[1:])
-			case "g":
-				err = l.processGroup(line)
-			case "mtllib":
-				err = l.processMaterialLibrary(line)
-			case "usemtl":
-				err = l.processUseMaterial(line)
+			// Ignored keywords
+		case "o":
+		case "s":
+		case "vt":
+		case "vp":
+			break
 
-				// Ignored keywords
-			case "o":
-			case "s":
-			case "vt":
-			case "vp":
-				break
+		default:
+			err = fmt.Errorf("Unknown keyword '%s'", fields[0])
+		}
 
-			default:
-				err = fmt.Errorf("Unknown keyword '%s'", fields[0])
-			}
-
-			if err != nil {
-				return lineError{i, line, err}
-			}
+		if err != nil {
+			return lineError{i, line, err}
 		}
 	}
-
+	l.endFaceset()
+	l.endGroup()
 	return scanner.Err()
 }
 
@@ -179,6 +199,7 @@ func (l *WavefrontObjReader) processUseMaterial(line string) error {
 	if match := usemtlRegex.FindStringSubmatch(line); match != nil {
 		l.endFaceset()
 		l.startFaceset(match[1])
+		l.lastMaterial = match[1]
 		return nil
 	}
 	return fmt.Errorf("Could not parse 'usemtl'-line")
@@ -196,7 +217,17 @@ func (l *WavefrontObjReader) startFaceset(material string) {
 func (l *WavefrontObjReader) endFaceset() {
 	if len(l.facesets) > 0 {
 		lastIdx := len(l.facesets) - 1
-		l.facesets[lastIdx].faceCount = len(l.f) - l.facesets[lastIdx].firstFaceIndex
+		count := len(l.f) - l.facesets[lastIdx].firstFaceIndex
+		if count > 0 {
+			l.facesets[lastIdx].faceCount = len(l.f) - l.facesets[lastIdx].firstFaceIndex
+		} else {
+			// Empty faceset, discard
+			if len(l.facesets) > 0 {
+				l.facesets = l.facesets[1:]
+			} else {
+				l.facesets = nil
+			}
+		}
 	}
 }
 
@@ -207,10 +238,25 @@ func (l *WavefrontObjReader) startGroup(name string) {
 		facesetCount:      -1,
 	}
 	l.g = append(l.g, g)
+	// End current faceset and start a new one (if the next line
+	// is a 'usemtl'-line the faceset will be discarded)
+	//l.startFaceset(l.lastMaterial)
 }
+
 func (l *WavefrontObjReader) endGroup() {
+	//l.endFaceset()
 	if len(l.g) > 0 {
 		idx := len(l.g) - 1
-		l.g[idx].facesetCount = len(l.facesets) - l.g[idx].firstFacesetIndex
+		count := len(l.facesets) - l.g[idx].firstFacesetIndex
+		if count > 0 {
+			l.g[idx].facesetCount = count
+		} else {
+			// Empty group, discard
+			if len(l.g) > 0 {
+				l.g = l.g[1:]
+			} else {
+				l.g = nil
+			}
+		}
 	}
 }
