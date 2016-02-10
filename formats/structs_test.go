@@ -45,5 +45,4 @@ func TestObjBuffer_BoundingBox_ZeroNotIncludedInBounds_ReturnsCorrectBoundingBox
 
 	// Assert
 	assert.Equal(t, vec3.Box{Min: vec3.T{1, 1, 1}, Max: vec3.T{2, 4, 5}}, box)
-
 }

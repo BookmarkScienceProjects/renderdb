@@ -46,3 +46,13 @@ func (b *objBuffer) BoundingBox() vec3.Box {
 	}
 	return box
 }
+
+// ReadOptions represents options used by WavefrontObjReader.Read.
+type ReadOptions struct {
+	// DiscardDegeneratedFaces instructs the reader to discard faces
+	// where a vertex index appears twice, e.g. "1 1 2".
+	DiscardDegeneratedFaces bool
+	// DiscardEmptyGroups instructs the reader to discard groups that
+	// does not contain any faces.
+	DiscardEmptyGroups bool
+}

@@ -44,6 +44,14 @@ func init() {
 // 'g'-keyword.
 type WavefrontObjReader struct {
 	objBuffer
+
+	options ReadOptions
+}
+
+// SetOptions sets the read options that alters the behavior of
+// Read. Defaults to the default ReadOptions{} struct.
+func (l *WavefrontObjReader) SetOptions(options ReadOptions) {
+	l.options = options
 }
 
 func (l *WavefrontObjReader) Read(reader io.Reader) error {
@@ -155,6 +163,21 @@ func parseFaceField(field string) (faceCorner, error) {
 	}
 }
 
+func (l *WavefrontObjReader) isFaceAccepted(f *face) bool {
+	if l.options.DiscardDegeneratedFaces {
+		// Degenerated when a vertex index appears twice
+		occurences := make(map[int]bool, len(f.corners))
+		for _, c := range f.corners {
+			vIdx := c.vertexIndex
+			if _, ok := occurences[vIdx]; ok {
+				return false // vIdx occurs twice, degenerated
+			}
+			occurences[vIdx] = true
+		}
+	}
+	return true
+}
+
 func (l *WavefrontObjReader) processFace(fields []string) error {
 	if len(fields) < 3 {
 		return fmt.Errorf("Expected %d fields, but got %d", 3, len(fields))
@@ -168,7 +191,9 @@ func (l *WavefrontObjReader) processFace(fields []string) error {
 		}
 		f.corners[i] = corner
 	}
-	l.f = append(l.f, f)
+	if l.isFaceAccepted(&f) {
+		l.f = append(l.f, f)
+	}
 	return nil
 }
 
@@ -209,8 +234,22 @@ func (l *WavefrontObjReader) startGroup(name string) {
 	l.g = append(l.g, g)
 }
 
+func (l *WavefrontObjReader) isGroupAccepted(f *face) bool {
+	if l.options.DiscardDegeneratedFaces {
+		// Degenerated when a vertex index appears twice
+		occurences := make(map[int]bool, len(f.corners))
+		for _, c := range f.corners {
+			vIdx := c.vertexIndex
+			if _, ok := occurences[vIdx]; ok {
+				return false // vIdx occurs twice, degenerated
+			}
+			occurences[vIdx] = true
+		}
+	}
+	return true
+}
+
 func (l *WavefrontObjReader) endGroup() {
-	//l.endFaceset()
 	if len(l.g) > 0 {
 		idx := len(l.g) - 1
 		count := len(l.f) - l.g[idx].firstFaceIndex
@@ -219,7 +258,7 @@ func (l *WavefrontObjReader) endGroup() {
 		} else {
 			// Empty group, discard
 			if len(l.g) > 0 {
-				l.g = l.g[1:]
+				l.g = l.g[:len(l.g)-1]
 			} else {
 				l.g = nil
 			}

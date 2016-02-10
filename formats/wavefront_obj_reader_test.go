@@ -194,15 +194,16 @@ func TestWavefrontObjReader_ProcessFace_UsesActiveMaterial(t *testing.T) {
 	assert.Equal(t, "my-material", loader.f[0].material)
 }
 
-func TestWavefrontObjReader_EndGroup_EmptyGroup_IsDiscarded(t *testing.T) {
+func TestWavefrontObjReader_EndGroup_EmptyGroup_DiscardsLast(t *testing.T) {
 	// Arrange
 	loader := WavefrontObjReader{}
+	origGroups := []group{group{name: "first"}}
+	loader.g = origGroups
 
 	// Act
-	loader.startGroup("someGroup")
+	loader.startGroup("last")
 	loader.endGroup()
 
 	// Assert
-	assert.Empty(t, loader.f)
-	assert.Empty(t, loader.g)
+	assert.EqualValues(t, origGroups, loader.g)
 }
