@@ -52,7 +52,4 @@ type ReadOptions struct {
 	// DiscardDegeneratedFaces instructs the reader to discard faces
 	// where a vertex index appears twice, e.g. "1 1 2".
 	DiscardDegeneratedFaces bool
-	// DiscardEmptyGroups instructs the reader to discard groups that
-	// does not contain any faces.
-	DiscardEmptyGroups bool
 }
