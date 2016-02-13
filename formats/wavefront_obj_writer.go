@@ -82,7 +82,7 @@ func writeVectors(w io.Writer, format string, vectors []vec3.T) error {
 
 func (b *objBuffer) writeGroup(w io.Writer, g group) error {
 	var err error
-	_, err = io.WriteString(w, fmt.Sprintf("g %s", g.name))
+	_, err = io.WriteString(w, fmt.Sprintf("g %s\n", g.name))
 	if err != nil {
 		return err
 	}
