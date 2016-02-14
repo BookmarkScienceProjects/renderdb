@@ -20,6 +20,9 @@ type Repository interface {
 	// Optionally, one or more Options may be provided to alter the behaviour of the
 	// operation.
 	GetInsideVolume(bounds vec3.Box, options ...interface{}) (<-chan Object, <-chan error)
+	// GetInsideVolumeIDs returns the same result as GetInsideVolume, but only returns
+	// object IDs as a flat array rather than a channel of objects.
+	GetInsideVolumeIDs(bounds vec3.Box, options ...interface{}) ([]int64, error)
 	// GetWithIds returns objects with the given IDs. Returns two channels,
 	// one for geometry object and one for error. The operation is aborted on the first error.
 	GetWithIDs(ids []int64) (<-chan Object, <-chan error)
@@ -83,31 +86,40 @@ func (r *defaultRepository) GetInsideVolume(bounds vec3.Box, opts ...interface{}
 	go func() {
 		defer close(geometryCh)
 
-		// Verify arguments
-		err := options.VerifyAllAreOptions(opts...)
+		// Find IDs
+		ids, err := r.GetInsideVolumeIDs(bounds, opts...)
 		if err != nil {
 			errCh <- err
 			return
 		}
-
-		// Spacial lookup
-		results := r.tree.SearchIntersect(conversion.BoxToRect(&bounds))
-
-		// Apply geometry filters
-		results = options.ApplyAllFilterGeometryOptions(results, opts...)
-
-		// Create 'object placeholders'
-		ids := make([]int64, len(results))
-		for i, x := range results {
-			entry := x.(*rtreeEntry)
-			ids[i] = entry.id
-		}
-
 		// Lookup exact geometry and metadata
 		r.retrieveGeometryFromDatabase(ids, geometryCh, errCh)
 	}()
 
 	return geometryCh, errCh
+}
+
+func (r *defaultRepository) GetInsideVolumeIDs(bounds vec3.Box, opts ...interface{}) ([]int64, error) {
+	// Verify arguments
+	err := options.VerifyAllAreOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Spacial lookup
+	results := r.tree.SearchIntersect(conversion.BoxToRect(&bounds))
+
+	// Apply geometry filters
+	results = options.ApplyAllFilterGeometryOptions(results, opts...)
+
+	// Extract IDs
+	ids := make([]int64, len(results))
+	for i, x := range results {
+		entry := x.(*rtreeEntry)
+		ids[i] = entry.id
+	}
+
+	return ids, nil
 }
 
 func (r *defaultRepository) GetWithIDs(ids []int64) (<-chan Object, <-chan error) {
