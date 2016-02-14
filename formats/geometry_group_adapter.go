@@ -32,3 +32,7 @@ func (a *geometryGroupAdapter) BoundingBox() vec3.Box {
 func (a *geometryGroupAdapter) Write(w io.Writer) error {
 	return a.buffer.Write(w)
 }
+
+func (a *geometryGroupAdapter) Intersects(start, direction *vec3.T) bool {
+	return a.buffer.Intersects(start, direction)
+}

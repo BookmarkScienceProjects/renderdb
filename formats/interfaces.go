@@ -10,4 +10,5 @@ type GeometryGroup interface {
 	Name() string
 	BoundingBox() vec3.Box
 	Write(w io.Writer) error
+	Intersects(start *vec3.T, direction *vec3.T) bool
 }

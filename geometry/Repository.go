@@ -1,7 +1,6 @@
 package geometry
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/dhconnelly/rtreego"
@@ -21,6 +20,11 @@ type Repository interface {
 	// Optionally, one or more Options may be provided to alter the behaviour of the
 	// operation.
 	GetInsideVolume(bounds vec3.Box, options ...interface{}) (<-chan Object, <-chan error)
+	// GetWithIds returns objects with the given IDs. Returns two channels,
+	// one for geometry object and one for error. The operation is aborted on the first error.
+	GetWithIDs(ids []int64) (<-chan Object, <-chan error)
+	// GetWithID returns object the the given ID, or an error if the operation fails.
+	GetWithID(id int64) (Object, error)
 }
 
 // NewRepository initializes a new repository using the given database.
@@ -94,43 +98,66 @@ func (r *defaultRepository) GetInsideVolume(bounds vec3.Box, opts ...interface{}
 
 		// Create 'object placeholders'
 		ids := make([]int64, len(results))
-		geometry := make(map[int64]*SimpleObject)
 		for i, x := range results {
 			entry := x.(*rtreeEntry)
 			ids[i] = entry.id
-
-			o := new(SimpleObject)
-			o.bounds = conversion.RectToBox(entry.bounds)
-			geometry[entry.id] = o
 		}
 
 		// Lookup exact geometry and metadata
-		dbDataCh, dbErrCh := r.database.getMany(ids)
-		// Merge spatial data and metadata/exact geometry
-		open := true
-		for open {
-			var data *data
-			select {
-			case data, open = <-dbDataCh:
-				if open {
-					o, found := geometry[data.id]
-					if !found {
-						errCh <- fmt.Errorf("Database returned item with ID %d, but this was not in the query volume", data.id)
-						return
-					}
-					o.metadata = data.metadata
-					o.geometryData = data.geometryData
-					geometryCh <- o
-				}
-
-			case err, open = <-dbErrCh:
-				if open {
-					errCh <- err
-				}
-				return
-			}
-		}
+		r.retrieveGeometryFromDatabase(ids, geometryCh, errCh)
 	}()
 
 	return geometryCh, errCh
+}
+
+func (r *defaultRepository) GetWithIDs(ids []int64) (<-chan Object, <-chan error) {
+	geometryCh := make(chan Object, 200)
+	errCh := make(chan error)
+	go func() {
+		defer close(geometryCh)
+
+		r.retrieveGeometryFromDatabase(ids, geometryCh, errCh)
+	}()
+	return geometryCh, errCh
+}
+
+func (r *defaultRepository) GetWithID(id int64) (Object, error) {
+	geometryCh, errCh := r.GetWithIDs([]int64{id})
+	select {
+	case geom := <-geometryCh:
+		return geom, nil
+	case err := <-errCh:
+		return nil, err
+	}
+}
+
+func (r *defaultRepository) retrieveGeometryFromDatabase(ids []int64, geometryCh chan Object, errCh chan error) {
+	if len(ids) == 0 {
+		return
+	}
+	// Lookup exact geometry and metadata
+	dbDataCh, dbErrCh := r.database.getMany(ids)
+	// Merge spatial data and metadata/exact geometry
+	open := true
+	for open {
+		var err error
+		var data *data
+		select {
+		case data, open = <-dbDataCh:
+			if open {
+				o := new(SimpleObject)
+				o.id = data.id
+				o.bounds = &data.bounds
+				o.metadata = data.metadata
+				o.geometryData = data.geometryData
+				geometryCh <- o
+			}
+
+		case err, open = <-dbErrCh:
+			if open {
+				errCh <- err
+			}
+			return
+		}
+	}
 }

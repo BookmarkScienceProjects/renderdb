@@ -60,7 +60,7 @@ func createGetManyResult(values ...interface{}) (chan *data, chan error) {
 	return dataCh, errCh
 }
 
-func flattenGetInsideVolumeResults(objCh <-chan Object, errCh <-chan error) ([]Object, error) {
+func flattenChannels(objCh <-chan Object, errCh <-chan error) ([]Object, error) {
 	objects := []Object{}
 	doBreak := false
 	for !doBreak {
@@ -129,7 +129,6 @@ func TestRepository_GetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.
 
 	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(1, nil)
-	mockDb.On("getMany", []int64{}).Return(createGetManyResult())
 
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
@@ -137,7 +136,7 @@ func TestRepository_GetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.
 
 	// Act
 	bounds := vec3.Box{vec3.T{5, 5, 5}, vec3.T{6, 6, 6}}
-	objects, err := flattenGetInsideVolumeResults(repo.GetInsideVolume(bounds))
+	objects, err := flattenChannels(repo.GetInsideVolume(bounds))
 
 	// Assert
 	mockDb.AssertExpectations(t)
@@ -165,7 +164,7 @@ func TestRepository_GetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) 
 
 	// Act
 	searchBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	objects, err := flattenGetInsideVolumeResults(repo.GetInsideVolume(searchBounds))
+	objects, err := flattenChannels(repo.GetInsideVolume(searchBounds))
 
 	// Assert
 	mockDb.AssertExpectations(t)
@@ -191,7 +190,7 @@ func TestRepository_GetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing
 
 	// Act
 	searchBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	objects, err := flattenGetInsideVolumeResults(repo.GetInsideVolume(searchBounds))
+	objects, err := flattenChannels(repo.GetInsideVolume(searchBounds))
 
 	// Assert
 	mockDb.AssertExpectations(t)
@@ -226,7 +225,7 @@ func TestRepository_GetInsideVolume_DatabaseReturnsOneThenError_ReturnsError(t *
 
 	// Act
 	searchBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	_, err := flattenGetInsideVolumeResults(repo.GetInsideVolume(searchBounds))
+	_, err := flattenChannels(repo.GetInsideVolume(searchBounds))
 
 	// Assert
 	mockDb.AssertExpectations(t)
@@ -263,7 +262,7 @@ func TestRepository_GetInsideVolume_WithFilterGeometryOptions_ReturnsFiltered(t 
 
 	// Act
 	searchBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	result, err := flattenGetInsideVolumeResults(repo.GetInsideVolume(searchBounds, mockOptions))
+	result, err := flattenChannels(repo.GetInsideVolume(searchBounds, mockOptions))
 
 	// Assert
 	mockDb.AssertExpectations(t)
@@ -286,4 +285,80 @@ func TestRepository_LoadFromDatabase_LoadsObjectsFromDatabase(t *testing.T) {
 	mockDb.AssertExpectations(t)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, rtree.Size())
+}
+
+func TestRepository_GetWithIDs_NoIDs_ReturnsEmpty(t *testing.T) {
+	// Arrange
+	mockDb := new(mockDatabase)
+	rtree := rtreego.NewTree(3, 5, 10)
+	repo := defaultRepository{mockDb, rtree}
+
+	// Act
+	results, err := flattenChannels(repo.GetWithIDs([]int64{}))
+
+	// Assert
+	assert.Empty(t, results)
+	assert.NoError(t, err)
+}
+
+func TestRepository_GetWithIDs_DatabaseReturnsError_ReturnsError(t *testing.T) {
+	// Arrange
+	mockDb := new(mockDatabase)
+	mockDb.On("getMany", []int64{1}).Return(createGetManyResult(errors.New("")))
+	rtree := rtreego.NewTree(3, 5, 10)
+	repo := defaultRepository{mockDb, rtree}
+
+	// Act
+	results, err := flattenChannels(repo.GetWithIDs([]int64{1}))
+
+	// Assert
+	assert.Empty(t, results)
+	assert.Error(t, err)
+}
+
+func TestRepository_GetWithIDs_TwoValidIDs_ReturnsTwoObjects(t *testing.T) {
+	// Arrange
+	mockDb := new(mockDatabase)
+	mockDb.On("getMany", []int64{1, 2}).
+		Return(createGetManyResult(&data{id: 1}, &data{id: 2}))
+	rtree := rtreego.NewTree(3, 5, 10)
+	repo := defaultRepository{mockDb, rtree}
+
+	// Act
+	results, err := flattenChannels(repo.GetWithIDs([]int64{1, 2}))
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(results))
+}
+
+func TestRepository_GetWithID_InvalidID_ReturnsError(t *testing.T) {
+	// Arrange
+	mockDb := new(mockDatabase)
+	mockDb.On("getMany", []int64{1}).
+		Return(createGetManyResult(errors.New("")))
+	rtree := rtreego.NewTree(3, 5, 10)
+	repo := defaultRepository{mockDb, rtree}
+
+	// Act
+	result, err := repo.GetWithID(1)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Nil(t, result)
+}
+func TestRepository_GetWithID_ValidID_ReturnsObject(t *testing.T) {
+	// Arrange
+	mockDb := new(mockDatabase)
+	mockDb.On("getMany", []int64{1}).
+		Return(createGetManyResult(&data{id: 1}))
+	rtree := rtreego.NewTree(3, 5, 10)
+	repo := defaultRepository{mockDb, rtree}
+
+	// Act
+	result, err := repo.GetWithID(1)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
 }
