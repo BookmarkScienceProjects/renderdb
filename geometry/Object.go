@@ -21,6 +21,15 @@ type SimpleObject struct {
 	metadata     interface{}
 }
 
+func NewSimpleObject(bounds vec3.Box, geometryData []byte, metadata interface{}) *SimpleObject {
+	o := new(SimpleObject)
+	o.id = -1
+	o.bounds = &bounds
+	o.geometryData = geometryData
+	o.metadata = metadata
+	return o
+}
+
 func (o *SimpleObject) ID() int64 {
 	return o.id
 }

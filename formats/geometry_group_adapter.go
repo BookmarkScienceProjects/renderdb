@@ -33,6 +33,6 @@ func (a *geometryGroupAdapter) Write(w io.Writer) error {
 	return a.buffer.Write(w)
 }
 
-func (a *geometryGroupAdapter) Intersects(start, direction *vec3.T) bool {
-	return a.buffer.Intersects(start, direction)
+func (a *geometryGroupAdapter) RayIntersects(start, direction *vec3.T) bool {
+	return a.buffer.RayIntersects(start, direction)
 }

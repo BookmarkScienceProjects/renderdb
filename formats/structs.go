@@ -50,7 +50,7 @@ func (b *objBuffer) BoundingBox() vec3.Box {
 	return box
 }
 
-func (b *objBuffer) Intersects(origin, direction *vec3.T) bool {
+func (b *objBuffer) RayIntersects(origin, direction *vec3.T) bool {
 	for _, f := range b.f {
 		if len(f.corners) != 3 {
 			panic(errors.New("Intersects only works on triangles"))

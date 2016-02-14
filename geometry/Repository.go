@@ -92,6 +92,7 @@ func (r *defaultRepository) GetInsideVolume(bounds vec3.Box, opts ...interface{}
 			errCh <- err
 			return
 		}
+
 		// Lookup exact geometry and metadata
 		r.retrieveGeometryFromDatabase(ids, geometryCh, errCh)
 	}()
