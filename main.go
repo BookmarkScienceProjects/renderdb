@@ -11,7 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
-	"github.com/larsmoa/renderdb/geometry"
+	"github.com/larsmoa/renderdb/repository"
 	"github.com/larsmoa/renderdb/routes"
 
 	_ "github.com/lib/pq"
@@ -22,7 +22,7 @@ type applicationArgs struct {
 	serverAddress      string
 	dbConnectionString string
 	dbDriver           string
-	useHttp2           bool
+	useHTTP2           bool
 	tlsCertFile        string
 	tlsKeyFile         string
 }
@@ -30,7 +30,7 @@ type applicationArgs struct {
 type application struct {
 	args   applicationArgs
 	db     *sqlx.DB
-	repo   geometry.Repository
+	repo   repository.Repository
 	router *mux.Router
 }
 
@@ -44,7 +44,7 @@ func (a *application) parseArguments() error {
 		"TLS certificate to use to secure the HTTP link.")
 	flag.StringVar(&a.args.tlsKeyFile, "key", "",
 		"TLS private key to use to secure the HTTP link.")
-	flag.BoolVar(&a.args.useHttp2, "http2", false,
+	flag.BoolVar(&a.args.useHTTP2, "http2", false,
 		"Enable HTTP2 support. Requires TLS certification and private key.")
 	flag.Parse()
 	return nil
@@ -82,7 +82,7 @@ func (a *application) initializeDatabase() error {
 
 func (a *application) initializeRepository() error {
 	var err error
-	a.repo, err = geometry.NewRepository(a.db)
+	a.repo, err = repository.NewRepository(a.db)
 	return err
 }
 
@@ -106,7 +106,7 @@ func (a *application) initializeServer() error {
 
 	// Use HTTP 2?
 	protocolVersion := "1.1"
-	if a.args.useHttp2 {
+	if a.args.useHTTP2 {
 		protocolVersion = "2"
 		http2.ConfigureServer(srv,
 			&http2.Server{
@@ -121,7 +121,7 @@ func (a *application) initializeServer() error {
 		return srv.ListenAndServeTLS(a.args.tlsCertFile, a.args.tlsKeyFile)
 	} else if a.args.tlsCertFile != "" || a.args.tlsKeyFile != "" {
 		return errors.New("Must provide both TLS certificate and private key.")
-	} else if a.args.useHttp2 {
+	} else if a.args.useHTTP2 {
 		return errors.New("Must provide TLS certificate and private key when using HTTP/2.")
 	}
 	fmt.Printf("Serving at %s using HTTP/%s...", a.args.serverAddress, protocolVersion)

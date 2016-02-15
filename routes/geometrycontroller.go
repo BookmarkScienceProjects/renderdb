@@ -8,8 +8,8 @@ import (
 	"strconv"
 
 	"github.com/larsmoa/renderdb/formats"
-	"github.com/larsmoa/renderdb/geometry"
-	"github.com/larsmoa/renderdb/geometry/options"
+	"github.com/larsmoa/renderdb/repository"
+	"github.com/larsmoa/renderdb/repository/options"
 
 	"github.com/gorilla/mux"
 	"github.com/ungerik/go3d/float64/vec3"
@@ -81,7 +81,7 @@ func (p *geometryViewRequestPayload) Volume() *vec3.Box {
 
 type geometryObjectResponsePayload geometryRequestPayload
 
-func newGeometryObjectResponsePayload(obj geometry.Object) geometryObjectResponsePayload {
+func newGeometryObjectResponsePayload(obj repository.Object) geometryObjectResponsePayload {
 	payload := geometryObjectResponsePayload{}
 	bounds := obj.Bounds()
 	payload.Bounds = &BoundsPayload{bounds.Min, bounds.Max}
@@ -104,10 +104,10 @@ func newGeometryObjectResponsePayload(obj geometry.Object) geometryObjectRespons
 type GeometryController struct {
 	Controller
 
-	repo geometry.Repository
+	repo repository.Repository
 }
 
-func (c *GeometryController) Init(repo geometry.Repository, route *mux.Router) {
+func (c *GeometryController) Init(repo repository.Repository, route *mux.Router) {
 	c.repo = repo
 	route.Path("/geometry").Methods("POST").HandlerFunc(c.HandlePostGeometry)
 	route.Path("/geometry/obj").Methods("POST").HandlerFunc(c.HandlePostObjFile)
@@ -173,7 +173,7 @@ func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Re
 		}
 
 		var id int64
-		obj := geometry.NewSimpleObject(bounds, buf.Bytes(), nil)
+		obj := repository.NewSimpleObject(bounds, buf.Bytes(), nil)
 		id, err = c.repo.Add(obj)
 		if err != nil {
 			c.HandleError(w, NewHttpError(err, http.StatusInternalServerError))

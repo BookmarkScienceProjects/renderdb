@@ -1,4 +1,4 @@
-package geometry
+package repository
 
 import "github.com/dhconnelly/rtreego"
 

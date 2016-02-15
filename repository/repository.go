@@ -1,4 +1,4 @@
-package geometry
+package repository
 
 import (
 	"log"
@@ -6,7 +6,7 @@ import (
 	"github.com/dhconnelly/rtreego"
 	"github.com/jmoiron/sqlx"
 	"github.com/larsmoa/renderdb/conversion"
-	"github.com/larsmoa/renderdb/geometry/options"
+	"github.com/larsmoa/renderdb/repository/options"
 	"github.com/ungerik/go3d/float64/vec3"
 )
 
