@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
+	"strconv"
 
 	"github.com/larsmoa/renderdb/formats"
 	"github.com/larsmoa/renderdb/geometry"
@@ -39,6 +39,10 @@ func (p *geometryRequestPayload) VerifyPayload() HttpError {
 
 type geometryRequestPayloadWrapper struct {
 	payload *geometryRequestPayload
+}
+
+func (p *geometryRequestPayloadWrapper) ID() int64 {
+	panic("Not supported")
 }
 
 func (p *geometryRequestPayloadWrapper) Bounds() *vec3.Box {
@@ -75,10 +79,10 @@ func (p *geometryViewRequestPayload) Volume() *vec3.Box {
 	return &vec3.Box{p.Bounds.Min, p.Bounds.Max}
 }
 
-type geometryViewResponsePayload geometryRequestPayload
+type geometryObjectResponsePayload geometryRequestPayload
 
-func newViewResponsePayload(obj geometry.Object) geometryViewResponsePayload {
-	payload := geometryViewResponsePayload{}
+func newGeometryObjectResponsePayload(obj geometry.Object) geometryObjectResponsePayload {
+	payload := geometryObjectResponsePayload{}
 	bounds := obj.Bounds()
 	payload.Bounds = &BoundsPayload{bounds.Min, bounds.Max}
 	payload.GeometryData = obj.GeometryData()
@@ -108,6 +112,7 @@ func (c *GeometryController) Init(repo geometry.Repository, route *mux.Router) {
 	route.Path("/geometry").Methods("POST").HandlerFunc(c.HandlePostGeometry)
 	route.Path("/geometry/obj").Methods("POST").HandlerFunc(c.HandlePostObjFile)
 	route.Path("/geometry/view").Methods("POST").HandlerFunc(c.HandlePostView)
+	route.Path("/geometry/{id:[0-9]+}").Methods("GET").HandlerFunc(c.HandleGetGeometry)
 }
 
 func (c *GeometryController) HandlePostGeometry(w http.ResponseWriter, r *http.Request) {
@@ -140,51 +145,6 @@ func (c *GeometryController) HandlePostGeometry(w http.ResponseWriter, r *http.R
 	c.WriteResponse(w, geometryResponsePayload{id})
 }
 
-func (c *GeometryController) HandlePostView(w http.ResponseWriter, r *http.Request) {
-	// Parse body
-	ctx, httpErr := c.CreateContext(r)
-	if httpErr != nil {
-		c.HandleError(w, httpErr)
-		return
-	}
-	payload := new(geometryViewRequestPayload)
-	httpErr = c.ParseBody(ctx, payload)
-	if httpErr != nil {
-		c.HandleError(w, httpErr)
-		return
-	}
-
-	// Verify payload
-	httpErr = payload.VerifyPayload()
-	if httpErr != nil {
-		c.HandleError(w, httpErr)
-		return
-	}
-
-	// Get objects inside view
-	sortByDistanceOptions := options.SortByDistance{*payload.EyePosition}
-	objects := make([]geometryViewResponsePayload, 0, 100)
-	volume := *payload.Volume()
-	objCh, errCh := c.repo.GetInsideVolume(volume, sortByDistanceOptions)
-	more := true
-	for more {
-		var obj geometry.Object
-		var err error
-		select {
-		case obj, more = <-objCh:
-			if more {
-				objects = append(objects, newViewResponsePayload(obj))
-			}
-
-		case err = <-errCh:
-			c.HandleError(w, NewHttpError(err, http.StatusInternalServerError))
-			return
-		}
-	}
-
-	c.WriteResponse(w, objects)
-}
-
 func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Request) {
 	// Parse body
 	ctx, httpErr := c.CreateContext(r)
@@ -195,15 +155,12 @@ func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Re
 
 	defer ctx.Body.Close()
 	reader := formats.WavefrontObjReader{}
+	reader.SetOptions(formats.ReadOptions{DiscardDegeneratedFaces: true})
 	err := reader.Read(ctx.Body)
 	if err != nil {
 		c.HandleError(w, NewHttpError(err, http.StatusBadRequest))
 		return
 	}
-
-	f, _ := os.Create("/tmp/test.obj")
-	reader.Write(f)
-
 	storedObjects := make(map[int64]int)
 	groupCh := reader.Groups()
 	for g := range groupCh {
@@ -227,4 +184,53 @@ func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Re
 
 	bytes, _ := json.Marshal(storedObjects)
 	w.Write(bytes)
+}
+
+func (c *GeometryController) HandlePostView(w http.ResponseWriter, r *http.Request) {
+	// Parse body
+	ctx, httpErr := c.CreateContext(r)
+	if httpErr != nil {
+		c.HandleError(w, httpErr)
+		return
+	}
+	payload := new(geometryViewRequestPayload)
+	httpErr = c.ParseBody(ctx, payload)
+	if httpErr != nil {
+		c.HandleError(w, httpErr)
+		return
+	}
+
+	// Verify payload
+	httpErr = payload.VerifyPayload()
+	if httpErr != nil {
+		c.HandleError(w, httpErr)
+		return
+	}
+
+	// Get object IDs inside view
+	sortByDistanceOptions := options.SortByDistance{*payload.EyePosition}
+	volume := *payload.Volume()
+	ids, err := c.repo.GetInsideVolumeIDs(volume, sortByDistanceOptions)
+	if err != nil {
+		c.HandleError(w, NewHttpError(err, http.StatusInternalServerError))
+		return
+	}
+	c.WriteResponse(w, ids)
+}
+
+func (c *GeometryController) HandleGetGeometry(w http.ResponseWriter, r *http.Request) {
+	ctx, httpErr := c.CreateContext(r)
+	if httpErr != nil {
+		c.HandleError(w, httpErr)
+		return
+	}
+
+	var id int
+	id, _ = strconv.Atoi(ctx.Vars["id"])
+	object, err := c.repo.GetWithID(int64(id))
+	if err != nil {
+		c.HandleError(w, NewHttpError(err, http.StatusInternalServerError))
+		return
+	}
+	c.WriteResponse(w, newGeometryObjectResponsePayload(object))
 }
