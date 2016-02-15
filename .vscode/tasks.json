@@ -32,7 +32,7 @@
         },
         // Test task
         {
-            "taskName":"go test $(glide novendor) -cover",
+            "taskName":"go test $(glide novendor) -cover && echo Done!",
             "isBuildCommand": false,
             "isTestCommand": true,
             "args": ["-v", "$(glide novendor)"],
