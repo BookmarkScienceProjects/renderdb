@@ -14,7 +14,7 @@
     "tasks": [
         // Build task
         {
-            "taskName":"go build -v && echo Done!",
+            "taskName":"go generate $(glide nv) && go build -v && echo Done!",
             "isBuildCommand": true,
             "isTestCommand": false,
             "problemMatcher": {
