@@ -22,3 +22,6 @@ import:
 - package: golang.org/x/net
   subpackages:
   - /http2
+- package: github.com/rubenv/sql-migrate
+- package: github.com/jteeuwen/go-bindata
+  version: v3.0.7

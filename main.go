@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/larsmoa/renderdb/repository"
+	"github.com/larsmoa/renderdb/repository/sql"
 	"github.com/larsmoa/renderdb/routes"
 
 	_ "github.com/lib/pq"
@@ -65,19 +66,7 @@ func (a *application) initializeDatabase() error {
 		}
 		a.db = db
 	}
-
-	_, err := a.db.Exec(`
-            CREATE TABLE IF NOT EXISTS geometry_objects(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                bounds_x_min REAL NOT NULL,
-                bounds_y_min REAL NOT NULL,
-                bounds_z_min REAL NOT NULL,
-                bounds_x_max REAL NOT NULL,
-                bounds_y_max REAL NOT NULL,
-                bounds_z_max REAL NOT NULL,
-                geometry_data BLOB NOT NULL,
-                metadata STRING NOT NULL)`)
-	return err
+	return sql.Initialize(a.db)
 }
 
 func (a *application) initializeRepository() error {
