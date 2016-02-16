@@ -15,82 +15,6 @@ import (
 	"github.com/ungerik/go3d/float64/vec3"
 )
 
-type BoundsPayload struct {
-	Min [3]float64 `json:"min"`
-	Max [3]float64 `json:"max"`
-}
-
-type geometryRequestPayload struct {
-	Bounds       *BoundsPayload `json:"bounds"`
-	GeometryData []byte         `json:"geometryData"`
-	Metadata     string         `json:"metadata"`
-}
-
-func (p *geometryRequestPayload) VerifyPayload() HttpError {
-	if p.Bounds == nil {
-		return NewHttpError(fmt.Errorf("Missing field 'bounds'"), http.StatusBadRequest)
-	} else if p.GeometryData == nil {
-		return NewHttpError(fmt.Errorf("Missing field 'geometryData'"), http.StatusBadRequest)
-	} else if p.Metadata == "" {
-		return NewHttpError(fmt.Errorf("Missing field 'metadata'"), http.StatusBadRequest)
-	}
-	return nil
-}
-
-type geometryRequestPayloadWrapper struct {
-	payload *geometryRequestPayload
-}
-
-func (p *geometryRequestPayloadWrapper) ID() int64 {
-	panic("Not supported")
-}
-
-func (p *geometryRequestPayloadWrapper) Bounds() *vec3.Box {
-	return &vec3.Box{p.payload.Bounds.Min, p.payload.Bounds.Max}
-}
-
-func (p *geometryRequestPayloadWrapper) GeometryData() []byte {
-	return p.payload.GeometryData
-}
-
-func (p *geometryRequestPayloadWrapper) Metadata() interface{} {
-	return p.payload.Metadata
-}
-
-type geometryResponsePayload struct {
-	ID int64 `json:"id"`
-}
-
-type geometryViewRequestPayload struct {
-	Bounds      *BoundsPayload `json:"bounds"`
-	EyePosition *vec3.T        `json:"eyePosition"`
-}
-
-func (p *geometryViewRequestPayload) VerifyPayload() HttpError {
-	if p.Bounds == nil {
-		return NewHttpError(fmt.Errorf("Missing field 'bounds'"), http.StatusBadRequest)
-	} else if p.EyePosition == nil {
-		return NewHttpError(fmt.Errorf("Missing field 'eyePosition'"), http.StatusBadRequest)
-	}
-	return nil
-}
-
-func (p *geometryViewRequestPayload) Volume() *vec3.Box {
-	return &vec3.Box{p.Bounds.Min, p.Bounds.Max}
-}
-
-type geometryObjectResponsePayload geometryRequestPayload
-
-func newGeometryObjectResponsePayload(obj repository.Object) geometryObjectResponsePayload {
-	payload := geometryObjectResponsePayload{}
-	bounds := obj.Bounds()
-	payload.Bounds = &BoundsPayload{bounds.Min, bounds.Max}
-	payload.GeometryData = obj.GeometryData()
-	buffer, _ := json.Marshal(obj.Metadata())
-	payload.Metadata = string(buffer)
-	return payload
-}
-
 // GeometryController handles requests to "/geometry".
 // Supported endpoints:
 // - POST  /geometry
@@ -233,4 +157,80 @@ func (c *GeometryController) HandleGetGeometry(w http.ResponseWriter, r *http.Re
 		return
 	}
 	c.WriteResponse(w, newGeometryObjectResponsePayload(object))
+}
+
+type BoundsPayload struct {
+	Min [3]float64 `json:"min"`
+	Max [3]float64 `json:"max"`
+}
+
+type geometryRequestPayload struct {
+	Bounds       *BoundsPayload `json:"bounds"`
+	GeometryData []byte         `json:"geometryData"`
+	Metadata     string         `json:"metadata"`
+}
+
+func (p *geometryRequestPayload) VerifyPayload() HttpError {
+	if p.Bounds == nil {
+		return NewHttpError(fmt.Errorf("Missing field 'bounds'"), http.StatusBadRequest)
+	} else if p.GeometryData == nil {
+		return NewHttpError(fmt.Errorf("Missing field 'geometryData'"), http.StatusBadRequest)
+	} else if p.Metadata == "" {
+		return NewHttpError(fmt.Errorf("Missing field 'metadata'"), http.StatusBadRequest)
+	}
+	return nil
+}
+
+type geometryRequestPayloadWrapper struct {
+	payload *geometryRequestPayload
+}
+
+func (p *geometryRequestPayloadWrapper) ID() int64 {
+	panic("Not supported")
+}
+
+func (p *geometryRequestPayloadWrapper) Bounds() *vec3.Box {
+	return &vec3.Box{p.payload.Bounds.Min, p.payload.Bounds.Max}
+}
+
+func (p *geometryRequestPayloadWrapper) GeometryData() []byte {
+	return p.payload.GeometryData
+}
+
+func (p *geometryRequestPayloadWrapper) Metadata() interface{} {
+	return p.payload.Metadata
+}
+
+type geometryResponsePayload struct {
+	ID int64 `json:"id"`
+}
+
+type geometryViewRequestPayload struct {
+	Bounds      *BoundsPayload `json:"bounds"`
+	EyePosition *vec3.T        `json:"eyePosition"`
+}
+
+func (p *geometryViewRequestPayload) VerifyPayload() HttpError {
+	if p.Bounds == nil {
+		return NewHttpError(fmt.Errorf("Missing field 'bounds'"), http.StatusBadRequest)
+	} else if p.EyePosition == nil {
+		return NewHttpError(fmt.Errorf("Missing field 'eyePosition'"), http.StatusBadRequest)
+	}
+	return nil
+}
+
+func (p *geometryViewRequestPayload) Volume() *vec3.Box {
+	return &vec3.Box{p.Bounds.Min, p.Bounds.Max}
+}
+
+type geometryObjectResponsePayload geometryRequestPayload
+
+func newGeometryObjectResponsePayload(obj repository.Object) geometryObjectResponsePayload {
+	payload := geometryObjectResponsePayload{}
+	bounds := obj.Bounds()
+	payload.Bounds = &BoundsPayload{bounds.Min, bounds.Max}
+	payload.GeometryData = obj.GeometryData()
+	buffer, _ := json.Marshal(obj.Metadata())
+	payload.Metadata = string(buffer)
+	return payload
 }
