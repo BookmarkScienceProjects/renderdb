@@ -10,8 +10,6 @@ import:
 - package: github.com/barnex/fmath
 - package: github.com/dhconnelly/rtreego
   version: ddfb5d7b877e08f266b663ffc387fb671f615e8d
-- package: github.com/gorilla/mux
-  version: 26a6070f849969ba72b72256e9f14cf519751690
 - package: github.com/jmoiron/sqlx
   version: 5978a4ef08e4ddae6983d82b9166353fe21c6600
 - package: github.com/ungerik/go3d
@@ -25,3 +23,4 @@ import:
 - package: github.com/rubenv/sql-migrate
 - package: github.com/jteeuwen/go-bindata
   version: v3.0.7
+- package: github.com/go-martini/martini

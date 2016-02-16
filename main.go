@@ -9,12 +9,12 @@ import (
 
 	"golang.org/x/net/http2" // FIXME 20160214: Remove when Go 1.6 is released
 
-	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx"
 	"github.com/larsmoa/renderdb/repository"
 	"github.com/larsmoa/renderdb/repository/sql"
 	"github.com/larsmoa/renderdb/routes"
 
+	"github.com/go-martini/martini"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -32,7 +32,7 @@ type application struct {
 	args   applicationArgs
 	db     *sqlx.DB
 	repo   repository.Repository
-	router *mux.Router
+	router *martini.ClassicMartini
 }
 
 func (a *application) parseArguments() error {
@@ -76,7 +76,7 @@ func (a *application) initializeRepository() error {
 }
 
 func (a *application) initializeRoutes() error {
-	a.router = mux.NewRouter()
+	a.router = martini.Classic()
 
 	staticController := new(routes.StaticController)
 	staticController.Init(a.router)

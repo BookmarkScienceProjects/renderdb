@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/go-martini/martini"
 )
 
 type RequestContext struct {
@@ -15,10 +15,10 @@ type RequestContext struct {
 
 type Controller struct{}
 
-func (c *Controller) CreateContext(r *http.Request) (*RequestContext, HttpError) {
+func (c *Controller) CreateContext(r *http.Request, params martini.Params) (*RequestContext, HttpError) {
 	ctx := new(RequestContext)
 	ctx.Body = r.Body
-	ctx.Vars = mux.Vars(r)
+	ctx.Vars = params
 	return ctx, nil
 }
 

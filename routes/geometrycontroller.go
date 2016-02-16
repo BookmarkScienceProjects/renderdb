@@ -11,7 +11,7 @@ import (
 	"github.com/larsmoa/renderdb/repository"
 	"github.com/larsmoa/renderdb/repository/options"
 
-	"github.com/gorilla/mux"
+	"github.com/go-martini/martini"
 	"github.com/ungerik/go3d/float64/vec3"
 )
 
@@ -31,17 +31,19 @@ type GeometryController struct {
 	repo repository.Repository
 }
 
-func (c *GeometryController) Init(repo repository.Repository, route *mux.Router) {
+func (c *GeometryController) Init(repo repository.Repository, route *martini.ClassicMartini) {
 	c.repo = repo
-	route.Path("/geometry").Methods("POST").HandlerFunc(c.HandlePostGeometry)
-	route.Path("/geometry/obj").Methods("POST").HandlerFunc(c.HandlePostObjFile)
-	route.Path("/geometry/view").Methods("POST").HandlerFunc(c.HandlePostView)
-	route.Path("/geometry/{id:[0-9]+}").Methods("GET").HandlerFunc(c.HandleGetGeometry)
+	route.Group("/geometry", func(r martini.Router) {
+		r.Post("/", c.HandlePostGeometry)
+		r.Post("/obj", c.HandlePostObjFile)
+		r.Post("/view", c.HandlePostView)
+		r.Get("/(?P<id>[0-9]+)", c.HandleGetGeometry)
+	})
 }
 
-func (c *GeometryController) HandlePostGeometry(w http.ResponseWriter, r *http.Request) {
+func (c *GeometryController) HandlePostGeometry(w http.ResponseWriter, r *http.Request, params martini.Params) {
 	// Parse request
-	ctx, httpErr := c.CreateContext(r)
+	ctx, httpErr := c.CreateContext(r, params)
 	if httpErr != nil {
 		c.HandleError(w, httpErr)
 		return
@@ -69,9 +71,9 @@ func (c *GeometryController) HandlePostGeometry(w http.ResponseWriter, r *http.R
 	c.WriteResponse(w, geometryResponsePayload{id})
 }
 
-func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Request) {
+func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Request, params martini.Params) {
 	// Parse body
-	ctx, httpErr := c.CreateContext(r)
+	ctx, httpErr := c.CreateContext(r, params)
 	if httpErr != nil {
 		c.HandleError(w, httpErr)
 		return
@@ -110,9 +112,9 @@ func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Re
 	w.Write(bytes)
 }
 
-func (c *GeometryController) HandlePostView(w http.ResponseWriter, r *http.Request) {
+func (c *GeometryController) HandlePostView(w http.ResponseWriter, r *http.Request, params martini.Params) {
 	// Parse body
-	ctx, httpErr := c.CreateContext(r)
+	ctx, httpErr := c.CreateContext(r, params)
 	if httpErr != nil {
 		c.HandleError(w, httpErr)
 		return
@@ -142,8 +144,8 @@ func (c *GeometryController) HandlePostView(w http.ResponseWriter, r *http.Reque
 	c.WriteResponse(w, ids)
 }
 
-func (c *GeometryController) HandleGetGeometry(w http.ResponseWriter, r *http.Request) {
-	ctx, httpErr := c.CreateContext(r)
+func (c *GeometryController) HandleGetGeometry(w http.ResponseWriter, r *http.Request, params martini.Params) {
+	ctx, httpErr := c.CreateContext(r, params)
 	if httpErr != nil {
 		c.HandleError(w, httpErr)
 		return
