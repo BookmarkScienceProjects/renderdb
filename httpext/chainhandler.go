@@ -1,16 +1,31 @@
 package httpext
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/jmoiron/sqlx"
 )
 
+// ChainHandler extends Handler and is used by Chain()
+// to allow for incrementally building chained handlers.
+type ChainHandler interface {
+	Handler
+	// Then creates a new handler adds all handlers from this
+	// chain and the handler provided.
+	Then(h Handler) ChainHandler
+}
+
 // Chain creates a handler that executes the handlers in sequence.
 // If a handler returns an error or writes any bytes to the
 // http.ResponseWriter, the chain is broken and no more handlers
 // are processed.
-func Chain(handlers ...Handler) Handler {
+func Chain(handlers ...Handler) ChainHandler {
+	for i, h := range handlers {
+		if h == nil {
+			panic(fmt.Errorf("Argument %d was nil", i))
+		}
+	}
 	return &chainedHandler{handlers}
 }
 
@@ -38,13 +53,22 @@ func (c *chainedHandler) Handle(
 	return nil
 }
 
+func (c *chainedHandler) Then(h Handler) ChainHandler {
+	if h == nil {
+		panic("Handler cannot be nil")
+	}
+	extended := new(chainedHandler)
+	extended.handlers = append(c.handlers, h)
+	return extended
+}
+
 type responseWriterProxy struct {
 	w          http.ResponseWriter
 	hasWritten bool
 }
 
 func (p *responseWriterProxy) Header() http.Header {
-	return p.Header()
+	return p.w.Header()
 }
 
 func (p *responseWriterProxy) WriteHeader(statusCode int) {
@@ -52,8 +76,6 @@ func (p *responseWriterProxy) WriteHeader(statusCode int) {
 }
 
 func (p *responseWriterProxy) Write(data []byte) (int, error) {
-	if len(data) > 0 {
-		p.hasWritten = true
-		return p.w.Write(data)
-	}
+	p.hasWritten = true
+	return p.w.Write(data)
 }
