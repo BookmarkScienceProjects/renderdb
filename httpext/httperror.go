@@ -1,6 +1,6 @@
 package httpext
 
-// HttpError is a interface for errors that are transferable over HTTP as JSON.
+// HttpError is an interface for errors that are transferable over HTTP as JSON.
 type HttpError interface {
 	StatusCode() int
 	Error() string
