@@ -1,5 +1,6 @@
 package routes
 
+/*
 import (
 	"bytes"
 	"encoding/json"
@@ -7,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/larsmoa/renderdb/db"
 	"github.com/larsmoa/renderdb/formats"
 	"github.com/larsmoa/renderdb/repository"
 	"github.com/larsmoa/renderdb/repository/options"
@@ -14,6 +16,7 @@ import (
 	"github.com/go-martini/martini"
 	"github.com/ungerik/go3d/float64/vec3"
 )
+
 
 // GeometryController handles requests to "/geometry".
 // Supported endpoints:
@@ -99,7 +102,7 @@ func (c *GeometryController) HandlePostObjFile(w http.ResponseWriter, r *http.Re
 		}
 
 		var id int64
-		obj := repository.NewSimpleObject(bounds, buf.Bytes(), nil)
+		obj := db.NewSimpleObject(bounds, buf.Bytes(), nil)
 		id, err = c.repo.Add(obj)
 		if err != nil {
 			c.HandleError(w, NewHttpError(err, http.StatusInternalServerError))
@@ -236,3 +239,4 @@ func newGeometryObjectResponsePayload(obj repository.Object) geometryObjectRespo
 	payload.Metadata = string(buffer)
 	return payload
 }
+*/

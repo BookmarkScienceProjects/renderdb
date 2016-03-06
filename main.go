@@ -9,18 +9,20 @@ import (
 
 	"golang.org/x/net/http2" // FIXME 20160214: Remove when Go 1.6 is released
 
+	"github.com/larsmoa/renderdb/db/sql"
 	"github.com/larsmoa/renderdb/repository"
-	"github.com/larsmoa/renderdb/repository/sql"
 	"github.com/larsmoa/renderdb/routes"
 
-	"github.com/go-martini/martini"
+	"github.com/codegangsta/negroni"
+	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type applicationArgs struct {
-	serverAddress      string
+	serverAddress string
+
 	dbConnectionString string
 	dbDriver           string
 	useHTTP2           bool
@@ -29,10 +31,12 @@ type applicationArgs struct {
 }
 
 type application struct {
-	args   applicationArgs
-	db     *sqlx.DB
-	repo   repository.Repository
-	router *martini.ClassicMartini
+	args applicationArgs
+	db   *sqlx.DB
+	repo repository.Repository
+
+	webHandler *negroni.Negroni
+	router     *mux.Router
 }
 
 func (a *application) parseArguments() error {
@@ -70,19 +74,24 @@ func (a *application) initializeDatabase() error {
 }
 
 func (a *application) initializeRepository() error {
-	var err error
-	a.repo, err = repository.NewRepository(a.db)
-	return err
+	// var err error
+	// a.repo, err = repository.NewRepository(a.db)
+	// return err
+	return nil
 }
 
 func (a *application) initializeRoutes() error {
-	a.router = martini.Classic()
+	a.webHandler = negroni.New(negroni.NewRecovery(), negroni.NewLogger())
+	a.webHandler.Use(routes.NewDatabaseMiddleware(a.db))
 
-	staticController := new(routes.StaticController)
-	staticController.Init(a.router)
+	a.router = mux.NewRouter()
+	a.webHandler.UseHandler(a.router)
 
-	geomController := new(routes.GeometryController)
-	geomController.Init(a.repo, a.router)
+	routes.NewStaticController(a.router)
+	routes.NewWorldController(a.router, a.db)
+
+	// geomController := new(routes.GeometryController)
+	// geomController.Init(a.repo, a.router)
 
 	return nil
 }

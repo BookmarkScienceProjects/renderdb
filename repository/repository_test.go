@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/dhconnelly/rtreego"
+	"github.com/larsmoa/renderdb/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/ungerik/go3d/float64/vec3"
@@ -14,19 +15,19 @@ type mockDatabase struct {
 	mock.Mock
 }
 
-func (m *mockDatabase) add(o Object) (int64, error) {
+func (m *mockDatabase) Add(o db.Object) (int64, error) {
 	args := m.Called(o)
 	return int64(args.Int(0)), args.Error(1)
 }
 
-func (m *mockDatabase) getMany(ids []int64) (<-chan *data, <-chan error) {
+func (m *mockDatabase) GetMany(ids []int64) (<-chan db.Object, <-chan error) {
 	args := m.Called(ids)
-	return args.Get(0).(chan *data), args.Get(1).(chan error)
+	return args.Get(0).(chan db.Object), args.Get(1).(chan error)
 }
 
-func (m *mockDatabase) getAll() (<-chan *data, <-chan error) {
+func (m *mockDatabase) GetAll() (<-chan db.Object, <-chan error) {
 	args := m.Called()
-	return args.Get(0).(chan *data), args.Get(1).(chan error)
+	return args.Get(0).(chan db.Object), args.Get(1).(chan error)
 }
 
 type mockFilterOptions struct {
@@ -41,13 +42,13 @@ func (m *mockFilterOptions) Apply(bounds []*vec3.Box) []int {
 // createGetManyResult is a helper function to emulate how getMany() returns
 // values/error. Usage:
 //   .Returns(createGetManyResult(data1, data2, err)) // Returns two values, then fails
-func createGetManyResult(values ...interface{}) (chan *data, chan error) {
-	dataCh := make(chan *data)
+func createGetManyResult(values ...interface{}) (chan db.Object, chan error) {
+	dataCh := make(chan db.Object)
 	errCh := make(chan error)
 	go func() {
 		defer close(dataCh)
 		for _, v := range values {
-			if data, ok := v.(*data); ok {
+			if data, ok := v.(db.Object); ok {
 				dataCh <- data
 			} else if err, ok := v.(error); ok {
 				errCh <- err
@@ -60,8 +61,8 @@ func createGetManyResult(values ...interface{}) (chan *data, chan error) {
 	return dataCh, errCh
 }
 
-func flattenChannels(objCh <-chan Object, errCh <-chan error) ([]Object, error) {
-	objects := []Object{}
+func flattenChannels(objCh <-chan db.Object, errCh <-chan error) ([]db.Object, error) {
+	objects := []db.Object{}
 	doBreak := false
 	for !doBreak {
 		select {
@@ -80,8 +81,7 @@ func flattenChannels(objCh <-chan Object, errCh <-chan error) ([]Object, error) 
 
 func TestRepository_Add_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
 	// Arrange
-	obj := new(SimpleObject)
-	obj.bounds = &vec3.Box{}
+	obj := db.NewSimpleObject(vec3.Box{}, nil, nil)
 
 	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(1, nil)
@@ -101,8 +101,7 @@ func TestRepository_Add_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
 
 func TestRepository_Add_DatabaseReturnsError_DoesNotAddToTree(t *testing.T) {
 	// Arrange
-	obj := new(SimpleObject)
-	obj.bounds = &vec3.Box{}
+	obj := db.NewSimpleObject(vec3.Box{}, nil, nil)
 
 	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(0, errors.New("error"))
@@ -121,11 +120,7 @@ func TestRepository_Add_DatabaseReturnsError_DoesNotAddToTree(t *testing.T) {
 func TestRepository_GetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{1, 1, 1}, vec3.T{2, 2, 2}}
-	obj := &SimpleObject{
-		bounds:       &objBounds,
-		geometryData: []byte{},
-		metadata:     nil,
-	}
+	obj := db.NewSimpleObject(objBounds, []byte{}, nil)
 
 	mockDb := new(mockDatabase)
 	mockDb.On("add", obj).Return(1, nil)
@@ -147,11 +142,7 @@ func TestRepository_GetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.
 func TestRepository_GetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	obj := &SimpleObject{
-		bounds:       &objBounds,
-		geometryData: []byte{},
-		metadata:     nil,
-	}
+	obj := db.NewSimpleObject(objBounds, []byte{}, nil)
 
 	data := new(data)
 	data.id = 1

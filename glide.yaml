@@ -23,4 +23,8 @@ import:
 - package: github.com/rubenv/sql-migrate
 - package: github.com/jteeuwen/go-bindata
   version: v3.0.7
-- package: github.com/go-martini/martini
+  
+- package: github.com/codegangsta/negroni
+- package: github.com/gorilla/mux
+- package: github.com/gorilla/context
+- package: github.com/justinas/alice
