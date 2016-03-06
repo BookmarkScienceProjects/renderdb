@@ -54,7 +54,12 @@ func (db *worldsDb) GetAll() ([]*World, error) {
 
 func (db *worldsDb) Get(id int64) (*World, error) {
 	item, err := helpers.Get(db.tx, worldConstructor, getWorldSQL, id)
-	return item.(*World), err
+	if err != nil {
+		return nil, err
+	} else if item == nil {
+		return nil, nil
+	}
+	return item.(*World), nil
 }
 
 func (db *worldsDb) Add(world *World) (int64, error) {
