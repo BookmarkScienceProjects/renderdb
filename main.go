@@ -82,16 +82,12 @@ func (a *application) initializeRepository() error {
 
 func (a *application) initializeRoutes() error {
 	a.webHandler = negroni.New(negroni.NewRecovery(), negroni.NewLogger())
-	a.webHandler.Use(routes.NewDatabaseMiddleware(a.db))
 
 	a.router = mux.NewRouter()
 	a.webHandler.UseHandler(a.router)
 
 	routes.NewStaticController(a.router)
 	routes.NewWorldController(a.router, a.db)
-
-	// geomController := new(routes.GeometryController)
-	// geomController.Init(a.repo, a.router)
 
 	return nil
 }
