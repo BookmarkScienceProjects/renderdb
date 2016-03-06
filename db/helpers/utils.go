@@ -8,10 +8,10 @@ type constructorFunc func() interface{}
 // struct.
 // - tx is a transaction used to execute the SQL
 // - constructor is a function that returns a pointer to a prototype element (i.e. `new(MyStruct)`).
-// - sql is the actual SQL statement (with parameter placeholders).
+// - query is the actual SQL statement (with parameter placeholders).
 // - params is the parameters user to replace the placeholders in the SQL statement
-func GetAll(tx *sqlx.Tx, constructor constructorFunc, sql string, params ...interface{}) ([]interface{}, error) {
-	rows, err := tx.Queryx(sql, params...)
+func GetAll(tx *sqlx.Tx, constructor constructorFunc, query string, params ...interface{}) ([]interface{}, error) {
+	rows, err := tx.Queryx(query, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -33,16 +33,21 @@ func GetAll(tx *sqlx.Tx, constructor constructorFunc, sql string, params ...inte
 // a struct. If the query returns an empty result set the function will return nil (and no error).
 // - tx is a transaction used to execute the SQL
 // - constructor is a function that returns a pointer to a prototype element (i.e. `new(MyStruct)`).
-// - sql is the actual SQL statement (with parameter placeholders).
+// - query is the actual SQL statement (with parameter placeholders).
 // - id is the ID of the object to retrieve.
-func Get(tx *sqlx.Tx, constructor constructorFunc, sql string, id int64) (interface{}, error) {
-	row := tx.QueryRowx(sql, id)
-	if row.Err() != nil {
-		return nil, row.Err()
+func Get(tx *sqlx.Tx, constructor constructorFunc, query string, id int64) (interface{}, error) {
+	rows, err := tx.Queryx(query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, nil // No results
 	}
 
 	prototype := constructor()
-	if err := row.StructScan(prototype); err != nil {
+	if err = rows.StructScan(prototype); err != nil {
 		return nil, err
 	}
 	return prototype, nil
