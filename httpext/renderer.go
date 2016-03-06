@@ -25,11 +25,11 @@ func (r *jsonResponseRenderer) WriteEmpty(w http.ResponseWriter, statusCode int)
 }
 
 func (r *jsonResponseRenderer) WriteObject(w http.ResponseWriter, statusCode int, val interface{}) {
-	w.WriteHeader(statusCode)
 	buffer, err := json.Marshal(val)
 	if err != nil {
-		w.Write([]byte(fmt.Sprintf("Could not marshal value '%+v'", val)))
+		r.WriteError(w, fmt.Errorf("Could not marshal value '%+v' of type '%T'", val, val))
 	} else {
+		w.WriteHeader(statusCode)
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(buffer)
 
