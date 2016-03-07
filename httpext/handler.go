@@ -1,6 +1,7 @@
 package httpext
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/jmoiron/sqlx"
@@ -15,6 +16,7 @@ func NewHttpHandler(db *sqlx.DB, renderer ResponseRenderer, h Handler) http.Hand
 		// Initialize transaction
 		tx, err := db.Beginx()
 		if err != nil {
+			err = NewHttpError(fmt.Errorf("Could not open transaction (Reason: %v)", err), http.StatusInternalServerError)
 			renderer.WriteError(w, err)
 			return
 		}
@@ -22,13 +24,13 @@ func NewHttpHandler(db *sqlx.DB, renderer ResponseRenderer, h Handler) http.Hand
 		// Commit or rollback transation after handler is done
 		defer func() {
 			if err == nil {
-				err = tx.Commit()
-			} else {
-				err = tx.Rollback()
+				if err = tx.Commit(); err != nil {
+					renderer.WriteError(w, err)
+				}
+				return
 			}
-			if err != nil {
-				renderer.WriteError(w, err)
-			}
+			renderer.WriteError(w, err)
+			tx.Rollback()
 		}()
 
 		// Run handler

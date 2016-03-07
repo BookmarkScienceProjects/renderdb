@@ -28,3 +28,4 @@ import:
 - package: github.com/gorilla/mux
 - package: github.com/gorilla/context
 - package: github.com/justinas/alice
+- package: github.com/DATA-DOG/go-sqlmock
