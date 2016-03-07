@@ -1,5 +1,7 @@
 package main
 
+//go:generate go run _gogenerate/generate_mocks.go
+
 import (
 	"errors"
 	"flag"
