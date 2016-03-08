@@ -2,8 +2,10 @@ language: go
 
 go:
    - 1.5
-   - 1.6
    - tip
+
+env:
+   - GO15VENDOREXPERIMENT=1
 
 install:
    - go get -u github.com/jteeuwen/go-bindata/...
