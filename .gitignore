@@ -1,4 +1,4 @@
 renderdb
 test.db
 repository/sql/migrations.go
-mock_*_test.go
+mock_*.go

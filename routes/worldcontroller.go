@@ -26,9 +26,10 @@ func NewWorldController(router *mux.Router, db *sqlx.DB) *WorldController {
 // Init initializes the routes for "/world".
 func (c *WorldController) init(router *mux.Router, db *sqlx.DB) {
 	renderer := httpext.NewJSONResponseRenderer()
-	getWorlds := httpext.NewHttpHandler(db, renderer, &getWorldsHandler{})
-	getWorld := httpext.NewHttpHandler(db, renderer, &getWorldHandler{})
-	postWorld := httpext.NewHttpHandler(db, renderer, &postWorldHandler{})
+	middleware := httpext.Chain(&worldsMiddleware{})
+	getWorlds := httpext.NewHttpHandler(db, renderer, middleware.Then(&getWorldsHandler{}))
+	getWorld := httpext.NewHttpHandler(db, renderer, middleware.Then(&getWorldHandler{}))
+	postWorld := httpext.NewHttpHandler(db, renderer, middleware.Then(&postWorldHandler{}))
 
 	router.Handle("/worlds", getWorlds).Methods("GET")
 	router.Handle("/worlds/{id:[0-9]+}", getWorld).Methods("GET")

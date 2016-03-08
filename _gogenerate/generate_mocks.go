@@ -43,7 +43,7 @@ func glideNoVendor() ([]string, error) {
 	filtered := make([]string, 0, len(lines))
 	for _, l := range lines {
 		line := strings.TrimSuffix(l, "...")
-		if line != "" {
+		if line != "" && line != "." && line != "./mocks/" {
 			filtered = append(filtered, line)
 		}
 	}
@@ -51,10 +51,7 @@ func glideNoVendor() ([]string, error) {
 }
 
 func generateMocks(dir string) error {
-	args := []string{"-dir", dir, "-inpkg", "-testonly", "-all"}
-	if dir != "." {
-		args = append(args, "-recursive")
-	}
+	args := []string{"-dir", dir, "-recursive", "-all", "-inpkg"}
 	cmd := exec.Command("mockery", args...)
 	return cmd.Run()
 }
