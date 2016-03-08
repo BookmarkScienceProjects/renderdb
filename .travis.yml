@@ -1,0 +1,11 @@
+language: go
+
+go:
+   - 1.5
+   - 1.6
+   - tip
+
+install:
+   - go get -u github.com/jteeuwen/go-bindata/...
+   - go get github.com/vektra/mockery/.../
+
