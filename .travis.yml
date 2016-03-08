@@ -2,6 +2,7 @@ language: go
 
 go:
    - 1.5
+   - 1.6
    - tip
 
 env:
@@ -16,3 +17,6 @@ install:
    - go get github.com/vektra/mockery/.../
    - glide install
 
+script:
+   - go build -v
+   - go test -v $(glide nv)
