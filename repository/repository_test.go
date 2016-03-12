@@ -2,47 +2,20 @@ package repository
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/dhconnelly/rtreego"
 	"github.com/larsmoa/renderdb/db"
+	"github.com/larsmoa/renderdb/repository/options"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/ungerik/go3d/float64/vec3"
 )
-
-type mockDatabase struct {
-	mock.Mock
-}
-
-func (m *mockDatabase) Add(o db.Object) (int64, error) {
-	args := m.Called(o)
-	return int64(args.Int(0)), args.Error(1)
-}
-
-func (m *mockDatabase) GetMany(ids []int64) (<-chan db.Object, <-chan error) {
-	args := m.Called(ids)
-	return args.Get(0).(chan db.Object), args.Get(1).(chan error)
-}
-
-func (m *mockDatabase) GetAll() (<-chan db.Object, <-chan error) {
-	args := m.Called()
-	return args.Get(0).(chan db.Object), args.Get(1).(chan error)
-}
-
-type mockFilterOptions struct {
-	mock.Mock
-}
-
-func (m *mockFilterOptions) Apply(bounds []*vec3.Box) []int {
-	args := m.Called(bounds)
-	return args.Get(0).([]int)
-}
 
 // createGetManyResult is a helper function to emulate how getMany() returns
 // values/error. Usage:
 //   .Returns(createGetManyResult(data1, data2, err)) // Returns two values, then fails
-func createGetManyResult(values ...interface{}) (chan db.Object, chan error) {
+func createGetManyResult(values ...interface{}) (<-chan db.Object, <-chan error) {
 	dataCh := make(chan db.Object)
 	errCh := make(chan error)
 	go func() {
@@ -54,7 +27,7 @@ func createGetManyResult(values ...interface{}) (chan db.Object, chan error) {
 				errCh <- err
 				return
 			} else {
-				panic("Values must be error or *data")
+				panic(fmt.Sprintf("Values must be error or db.Object, got %T", v))
 			}
 		}
 	}()
@@ -83,8 +56,8 @@ func TestRepository_Add_ValidGeometry_AddsToTreeAndDatabase(t *testing.T) {
 	// Arrange
 	obj := db.NewSimpleObject(vec3.Box{}, nil, nil)
 
-	mockDb := new(mockDatabase)
-	mockDb.On("add", obj).Return(1, nil)
+	mockDb := new(db.MockObjects)
+	mockDb.On("Add", obj).Return(int64(1), nil)
 
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
@@ -103,8 +76,8 @@ func TestRepository_Add_DatabaseReturnsError_DoesNotAddToTree(t *testing.T) {
 	// Arrange
 	obj := db.NewSimpleObject(vec3.Box{}, nil, nil)
 
-	mockDb := new(mockDatabase)
-	mockDb.On("add", obj).Return(0, errors.New("error"))
+	mockDb := new(db.MockObjects)
+	mockDb.On("Add", obj).Return(int64(0), errors.New("error"))
 
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
@@ -122,8 +95,8 @@ func TestRepository_GetInsideVolume_NothingInsideVolume_ReturnsEmpty(t *testing.
 	objBounds := vec3.Box{vec3.T{1, 1, 1}, vec3.T{2, 2, 2}}
 	obj := db.NewSimpleObject(objBounds, []byte{}, nil)
 
-	mockDb := new(mockDatabase)
-	mockDb.On("add", obj).Return(1, nil)
+	mockDb := new(db.MockObjects)
+	mockDb.On("Add", obj).Return(int64(1), nil)
 
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
@@ -144,11 +117,12 @@ func TestRepository_GetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) 
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
 	obj := db.NewSimpleObject(objBounds, []byte{}, nil)
 
-	data := new(data)
-	data.id = 1
-	mockDb := new(mockDatabase)
-	mockDb.On("add", obj).Return(1, nil)
-	mockDb.On("getMany", []int64{1}).Return(createGetManyResult(data))
+	data := new(db.MockObject)
+	data.On("ID").Return(int64(1))
+
+	mockDb := new(db.MockObjects)
+	mockDb.On("Add", obj).Return(int64(1), nil)
+	mockDb.On("GetMany", []int64{1}).Return(createGetManyResult(data))
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
 	repo.Add(obj)
@@ -166,15 +140,11 @@ func TestRepository_GetInsideVolume_OneInsideVolume_ReturnsObject(t *testing.T) 
 func TestRepository_GetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	obj := &SimpleObject{
-		bounds:       &objBounds,
-		geometryData: []byte{},
-		metadata:     nil,
-	}
+	obj := db.NewSimpleObject(objBounds, []byte{}, nil)
 
-	mockDb := new(mockDatabase)
-	mockDb.On("add", obj).Return(1, nil)
-	mockDb.On("getMany", []int64{1}).Return(createGetManyResult(errors.New("error")))
+	mockDb := new(db.MockObjects)
+	mockDb.On("Add", obj).Return(int64(1), nil)
+	mockDb.On("GetMany", []int64{1}).Return(createGetManyResult(errors.New("error")))
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
 	repo.Add(obj)
@@ -192,23 +162,16 @@ func TestRepository_GetInsideVolume_DatabaseReturnsError_ReturnsError(t *testing
 func TestRepository_GetInsideVolume_DatabaseReturnsOneThenError_ReturnsError(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	obj1 := &SimpleObject{
-		bounds:       &objBounds,
-		geometryData: []byte("1"),
-		metadata:     nil,
-	}
-	obj2 := &SimpleObject{
-		bounds:       &objBounds,
-		geometryData: []byte("2"),
-		metadata:     nil,
-	}
+	obj1 := db.NewSimpleObject(objBounds, []byte("1"), nil)
+	obj2 := db.NewSimpleObject(objBounds, []byte("2"), nil)
 
-	data := new(data)
-	data.id = 1
-	mockDb := new(mockDatabase)
-	mockDb.On("add", obj1).Return(1, nil)
-	mockDb.On("add", obj2).Return(2, nil)
-	mockDb.On("getMany", []int64{1, 2}).Return(createGetManyResult(data, errors.New("error")))
+	data := new(db.MockObject)
+	data.On("ID").Return(int64(1))
+
+	mockDb := new(db.MockObjects)
+	mockDb.On("Add", obj1).Return(int64(1), nil)
+	mockDb.On("Add", obj2).Return(int64(2), nil)
+	mockDb.On("GetMany", []int64{1, 2}).Return(createGetManyResult(data, errors.New("error")))
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
 	repo.Add(obj1)
@@ -226,29 +189,21 @@ func TestRepository_GetInsideVolume_DatabaseReturnsOneThenError_ReturnsError(t *
 func TestRepository_GetInsideVolume_WithFilterGeometryOptions_ReturnsFiltered(t *testing.T) {
 	// Arrange
 	objBounds := vec3.Box{vec3.T{0.5, 0.5, 0.5}, vec3.T{1.5, 1.5, 1.5}}
-	obj1 := &SimpleObject{
-		bounds:       &objBounds,
-		geometryData: []byte("1"),
-		metadata:     nil,
-	}
-	obj2 := &SimpleObject{
-		bounds:       &objBounds,
-		geometryData: []byte("2"),
-		metadata:     nil,
-	}
+	obj1 := db.NewSimpleObject(objBounds, []byte("1"), nil)
+	obj2 := db.NewSimpleObject(objBounds, []byte("2"), nil)
 
-	data := new(data)
-	data.id = 1
-	mockDb := new(mockDatabase)
-	mockDb.On("add", obj1).Return(1, nil)
-	mockDb.On("add", obj2).Return(2, nil)
-	mockDb.On("getMany", []int64{1}).Return(createGetManyResult(data))
+	data := new(db.MockObject)
+	data.On("ID").Return(int64(1))
+	mockDb := new(db.MockObjects)
+	mockDb.On("Add", obj1).Return(int64(1), nil)
+	mockDb.On("Add", obj2).Return(int64(2), nil)
+	mockDb.On("GetMany", []int64{1}).Return(createGetManyResult(data))
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
 	repo.Add(obj1)
 	repo.Add(obj2)
 
-	mockOptions := new(mockFilterOptions)
+	mockOptions := new(options.MockFilterGeometryOption)
 	mockOptions.On("Apply", []*vec3.Box{&objBounds, &objBounds}).Return([]int{0})
 
 	// Act
@@ -264,8 +219,14 @@ func TestRepository_GetInsideVolume_WithFilterGeometryOptions_ReturnsFiltered(t 
 
 func TestRepository_LoadFromDatabase_LoadsObjectsFromDatabase(t *testing.T) {
 	// Arrange
-	mockDb := new(mockDatabase)
-	mockDb.On("getAll").Return(createGetManyResult(&data{id: 1}, &data{id: 2}))
+	obj1 := new(db.MockObject)
+	obj1.On("ID").Return(int64(1))
+	obj1.On("Bounds").Return(&vec3.Box{})
+	obj2 := new(db.MockObject)
+	obj2.On("ID").Return(int64(2))
+	obj2.On("Bounds").Return(&vec3.Box{})
+	mockDb := new(db.MockObjects)
+	mockDb.On("GetAll").Return(createGetManyResult(obj1, obj2))
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
 
@@ -280,7 +241,7 @@ func TestRepository_LoadFromDatabase_LoadsObjectsFromDatabase(t *testing.T) {
 
 func TestRepository_GetWithIDs_NoIDs_ReturnsEmpty(t *testing.T) {
 	// Arrange
-	mockDb := new(mockDatabase)
+	mockDb := new(db.MockObjects)
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
 
@@ -294,8 +255,8 @@ func TestRepository_GetWithIDs_NoIDs_ReturnsEmpty(t *testing.T) {
 
 func TestRepository_GetWithIDs_DatabaseReturnsError_ReturnsError(t *testing.T) {
 	// Arrange
-	mockDb := new(mockDatabase)
-	mockDb.On("getMany", []int64{1}).Return(createGetManyResult(errors.New("")))
+	mockDb := new(db.MockObjects)
+	mockDb.On("GetMany", []int64{1}).Return(createGetManyResult(errors.New("")))
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
 
@@ -309,9 +270,15 @@ func TestRepository_GetWithIDs_DatabaseReturnsError_ReturnsError(t *testing.T) {
 
 func TestRepository_GetWithIDs_TwoValidIDs_ReturnsTwoObjects(t *testing.T) {
 	// Arrange
-	mockDb := new(mockDatabase)
-	mockDb.On("getMany", []int64{1, 2}).
-		Return(createGetManyResult(&data{id: 1}, &data{id: 2}))
+	obj1 := new(db.MockObject)
+	obj1.On("ID").Return(int64(1))
+	obj1.On("Bounds").Return(&vec3.Box{})
+	obj2 := new(db.MockObject)
+	obj2.On("ID").Return(int64(2))
+	obj2.On("Bounds").Return(&vec3.Box{})
+	mockDb := new(db.MockObjects)
+	mockDb.On("GetMany", []int64{1, 2}).
+		Return(createGetManyResult(obj1, obj2))
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
 
@@ -325,8 +292,8 @@ func TestRepository_GetWithIDs_TwoValidIDs_ReturnsTwoObjects(t *testing.T) {
 
 func TestRepository_GetWithID_InvalidID_ReturnsError(t *testing.T) {
 	// Arrange
-	mockDb := new(mockDatabase)
-	mockDb.On("getMany", []int64{1}).
+	mockDb := new(db.MockObjects)
+	mockDb.On("GetMany", []int64{1}).
 		Return(createGetManyResult(errors.New("")))
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
@@ -340,9 +307,11 @@ func TestRepository_GetWithID_InvalidID_ReturnsError(t *testing.T) {
 }
 func TestRepository_GetWithID_ValidID_ReturnsObject(t *testing.T) {
 	// Arrange
-	mockDb := new(mockDatabase)
-	mockDb.On("getMany", []int64{1}).
-		Return(createGetManyResult(&data{id: 1}))
+	obj1 := new(db.MockObject)
+	obj1.On("ID").Return(int64(1))
+	mockDb := new(db.MockObjects)
+	mockDb.On("GetMany", []int64{1}).
+		Return(createGetManyResult(obj1))
 	rtree := rtreego.NewTree(3, 5, 10)
 	repo := defaultRepository{mockDb, rtree}
 
