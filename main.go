@@ -89,7 +89,8 @@ func (a *application) initializeRoutes() error {
 	a.webHandler.UseHandler(a.router)
 
 	routes.NewStaticController(a.router)
-	routes.NewWorldController(a.router, a.db)
+	routes.RegisterWorldsRoutes(a.router, a.db)
+	routes.RegisterLayersRoutes(a.router, a.db)
 
 	return nil
 }

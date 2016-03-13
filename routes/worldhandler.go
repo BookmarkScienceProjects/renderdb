@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
@@ -66,20 +65,26 @@ type getWorldHandler struct{}
 func (h *getWorldHandler) Handle(tx *sqlx.Tx, renderer httpext.ResponseRenderer,
 	w http.ResponseWriter, r *http.Request) error {
 
+	var err error
 	vars := mux.Vars(r)
-	id, err := strconv.ParseInt(vars["id"], 10, 64)
+	worldID, err := httpext.ReadInt64ID(vars, "worldID")
 	if err != nil {
-		return httpext.NewHttpError(fmt.Errorf("id must be a number (got '%s')", vars["id"]), http.StatusBadRequest)
+		renderer.WriteError(w, err)
+		return err
 	}
 
 	worldsDB := getWorldsFromContext(r)
-	world, err := worldsDB.Get(id)
+	world, err := worldsDB.Get(worldID)
 	if err != nil {
-		return httpext.NewHttpError(fmt.Errorf("Could not retrieve world with id %d (reason: %s)", id, err), http.StatusInternalServerError)
+		err = httpext.NewHttpError(fmt.Errorf("Could not retrieve world with id %d (reason: %s)", worldID, err), http.StatusInternalServerError)
+		renderer.WriteError(w, err)
+		return err
 	}
 
 	if world == nil {
-		return httpext.NewHttpError(fmt.Errorf("No world with id %d", id), http.StatusNotFound)
+		err = httpext.NewHttpError(fmt.Errorf("No world with id %d", worldID), http.StatusNotFound)
+		renderer.WriteError(w, err)
+		return err
 	}
 	renderer.WriteObject(w, http.StatusOK, world)
 	return nil

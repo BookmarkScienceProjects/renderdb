@@ -8,6 +8,8 @@ import (
 )
 
 type Handler interface {
+	// Handle handles a HTTP request and returns an error if the operation fails. The implementor
+	// is responsible for writing the error to the response.
 	Handle(tx *sqlx.Tx, renderer ResponseRenderer, w http.ResponseWriter, r *http.Request) error
 }
 

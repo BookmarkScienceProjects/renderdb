@@ -23,7 +23,7 @@ type Layers interface {
 	// GetAll returns all layers of the given world.
 	GetAll(worldid int64) ([]*Layer, error)
 	// Get returns the layer with the specified ID.
-	Get(id int64) (*Layer, error)
+	Get(worldid, layerid int64) (*Layer, error)
 	// Add creates a new layer and returns the ID, or an error.
 	Add(layer *Layer) (int64, error)
 	// Delete deletes the layer with the given ID.
@@ -38,8 +38,7 @@ const (
 )
 
 type layersDb struct {
-	layerID int64
-	tx      *sqlx.Tx
+	tx *sqlx.Tx
 }
 
 func layerConstructor() interface{} {
@@ -55,8 +54,8 @@ func (db *layersDb) GetAll(worldid int64) ([]*Layer, error) {
 	return layers, err
 }
 
-func (db *layersDb) Get(id int64) (*Layer, error) {
-	item, err := helpers.Get(db.tx, sceneConstructor, getLayerSQL, id)
+func (db *layersDb) Get(worldid int64, layerid int64) (*Layer, error) {
+	item, err := helpers.Get(db.tx, sceneConstructor, getLayerSQL, worldid, layerid)
 	return item.(*Layer), err
 }
 

@@ -34,9 +34,10 @@ func GetAll(tx *sqlx.Tx, constructor constructorFunc, query string, params ...in
 // - tx is a transaction used to execute the SQL
 // - constructor is a function that returns a pointer to a prototype element (i.e. `new(MyStruct)`).
 // - query is the actual SQL statement (with parameter placeholders).
-// - id is the ID of the object to retrieve.
-func Get(tx *sqlx.Tx, constructor constructorFunc, query string, id int64) (interface{}, error) {
-	rows, err := tx.Queryx(query, id)
+// - ids is one or more ID used to identify the of the object to retrieve (one per placeholder in the
+//   the query)
+func Get(tx *sqlx.Tx, constructor constructorFunc, query string, ids ...interface{}) (interface{}, error) {
+	rows, err := tx.Queryx(query, ids...)
 	if err != nil {
 		return nil, err
 	}
