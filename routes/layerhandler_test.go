@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -51,21 +50,20 @@ func (f *layerHandlerFixture) Teardown(t *testing.T) {
 	assert.NoError(t, f.db.Close())
 }
 
-func TestLayersMiddleware_InjectsWorldsToContext(t *testing.T) {
+func TestLayersMiddleware_Success(t *testing.T) {
 	// Arrange
-	r, _ := http.NewRequest("GET", "/", nil)
+	r, _ := http.NewRequest("GET", "/worlds/13/layers", nil)
 	f := layerHandlerFixture{}
 	f.Setup(t, r)
 	defer f.Teardown(t)
 	middleware := layersMiddleware{}
 
 	// Act
-	err := middleware.Handle(f.tx, f.renderer, f.writer, r)
+	err := httpext.InvokeHandler(&middleware, "GET", "/worlds/{worldID}/layers",
+		f.writer, r, f.tx, f.renderer)
 
 	// Assert
 	assert.NoError(t, err)
-	_, ok := context.GetOk(r, layersDBKey)
-	assert.True(t, ok)
 }
 
 func TestGetLayersHandler_GetAllReturnsError_WritesError(t *testing.T) {
@@ -75,7 +73,7 @@ func TestGetLayersHandler_GetAllReturnsError_WritesError(t *testing.T) {
 	f.Setup(t, r)
 	defer f.Teardown(t)
 
-	f.layers.On("GetAll", int64(13)).Return(nil, errors.New(""))
+	f.layers.On("GetAll").Return(nil, errors.New(""))
 	f.renderer.On("WriteError", f.writer, mock.Anything)
 	handler := getLayersHandler{}
 
@@ -84,7 +82,6 @@ func TestGetLayersHandler_GetAllReturnsError_WritesError(t *testing.T) {
 		f.writer, r, f.tx, f.renderer)
 
 	// Assert
-	fmt.Println(f.writer.Body.String())
 	assert.Error(t, err)
 	f.layers.AssertExpectations(t)
 	f.renderer.AssertExpectations(t)
@@ -98,7 +95,7 @@ func TestGetLayersHandler_GetAllReturnsLayers_WritesResponse(t *testing.T) {
 	defer f.Teardown(t)
 
 	layers := []*db.Layer{&db.Layer{}, &db.Layer{}}
-	f.layers.On("GetAll", int64(13)).Return(layers, nil)
+	f.layers.On("GetAll").Return(layers, nil)
 	f.renderer.On("WriteObject", f.writer, 200, layers)
 	handler := getLayersHandler{}
 
@@ -119,7 +116,7 @@ func TestGetLayerHander_GetAllReturnsError_WritesError(t *testing.T) {
 	f.Setup(t, r)
 	defer f.Teardown(t)
 
-	f.layers.On("Get", int64(13), int64(42)).Return(nil, errors.New(""))
+	f.layers.On("Get", int64(42)).Return(nil, errors.New(""))
 	f.renderer.On("WriteError", f.writer, mock.Anything)
 	handler := getLayerHandler{}
 
@@ -140,7 +137,7 @@ func TestGetLayerHandler_GetAllReturnsLayers_WritesResponse(t *testing.T) {
 	f.Setup(t, r)
 	defer f.Teardown(t)
 
-	f.layers.On("Get", int64(13), int64(42)).Return(&db.Layer{}, nil)
+	f.layers.On("Get", int64(42)).Return(&db.Layer{}, nil)
 	f.renderer.On("WriteObject", f.writer, 200, mock.Anything)
 	handler := getLayerHandler{}
 

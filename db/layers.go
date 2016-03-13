@@ -21,9 +21,9 @@ type Layer struct {
 // Layers provide functionality for accessing layers from a database.
 type Layers interface {
 	// GetAll returns all layers of the given world.
-	GetAll(worldid int64) ([]*Layer, error)
+	GetAll() ([]*Layer, error)
 	// Get returns the layer with the specified ID.
-	Get(worldid, layerid int64) (*Layer, error)
+	Get(layerid int64) (*Layer, error)
 	// Add creates a new layer and returns the ID, or an error.
 	Add(layer *Layer) (int64, error)
 	// Delete deletes the layer with the given ID.
@@ -32,21 +32,22 @@ type Layers interface {
 
 const (
 	getAllLayersSQL string = "SELECT id, world_id, name FROM layers WHERE world_id = ? ORDER BY name"
-	getLayerSQL     string = "SELECT id, world_id, name FROM layers WHERE world_id = ?, id = ?"
+	getLayerSQL     string = "SELECT id, world_id, name FROM layers WHERE id = ? AND world_id = ?"
 	addLayerSQL     string = "INSERT INTO layers(world_id, name) VALUES (:world_id, :name)"
-	deleteLayerSQL  string = "DELETE FROM layers WHERE id = ?"
+	deleteLayerSQL  string = "DELETE FROM layers WHERE id = ? AND world_id = ?"
 )
 
 type layersDb struct {
-	tx *sqlx.Tx
+	tx      *sqlx.Tx
+	worldID int64
 }
 
 func layerConstructor() interface{} {
 	return new(Layer)
 }
 
-func (db *layersDb) GetAll(worldid int64) ([]*Layer, error) {
-	items, err := helpers.GetAll(db.tx, sceneConstructor, getAllLayersSQL, worldid)
+func (db *layersDb) GetAll() ([]*Layer, error) {
+	items, err := helpers.GetAll(db.tx, sceneConstructor, getAllLayersSQL, db.worldID)
 	layers := make([]*Layer, len(items))
 	for i, s := range items {
 		layers[i] = s.(*Layer)
@@ -54,12 +55,13 @@ func (db *layersDb) GetAll(worldid int64) ([]*Layer, error) {
 	return layers, err
 }
 
-func (db *layersDb) Get(worldid int64, layerid int64) (*Layer, error) {
-	item, err := helpers.Get(db.tx, sceneConstructor, getLayerSQL, worldid, layerid)
+func (db *layersDb) Get(layerid int64) (*Layer, error) {
+	item, err := helpers.Get(db.tx, sceneConstructor, getLayerSQL, layerid, db.worldID)
 	return item.(*Layer), err
 }
 
 func (db *layersDb) Add(layer *Layer) (int64, error) {
+	layer.WorldID = db.worldID
 	result, _ := db.tx.NamedExec(addLayerSQL, layer)
 	return result.LastInsertId()
 }

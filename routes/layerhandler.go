@@ -21,9 +21,18 @@ const layersDBKey layersDBKeyType = 0
 
 type layersMiddleware struct{}
 
-func (h *layersMiddleware) Handle(tx *sqlx.Tx, _ httpext.ResponseRenderer,
-	_ http.ResponseWriter, r *http.Request) error {
-	layersDB := db.NewLayersDB(tx)
+func (h *layersMiddleware) Handle(tx *sqlx.Tx, renderer httpext.ResponseRenderer,
+	w http.ResponseWriter, r *http.Request) error {
+
+	// Parse URL
+	vars := mux.Vars(r)
+	worldID, err := httpext.ReadInt64ID(vars, "worldID")
+	if err != nil {
+		renderer.WriteError(w, err)
+		return err
+	}
+
+	layersDB := db.NewLayersDB(tx, worldID)
 	context.Set(r, layersDBKey, layersDB)
 	return nil
 }
@@ -46,18 +55,10 @@ func (h *getLayersHandler) Handle(tx *sqlx.Tx, renderer httpext.ResponseRenderer
 	w http.ResponseWriter, r *http.Request) error {
 
 	var err error
-	// Parse URL
-	vars := mux.Vars(r)
-	worldID, err := httpext.ReadInt64ID(vars, "worldID")
-	if err != nil {
-		fmt.Println("getLayersHandler err1", err)
-		renderer.WriteError(w, err)
-		return err
-	}
 
 	// Read from database
 	layersDB := getLayersFromContext(r)
-	layers, err := layersDB.GetAll(worldID)
+	layers, err := layersDB.GetAll()
 	if err != nil {
 		renderer.WriteError(w, err)
 		return err
@@ -75,37 +76,28 @@ type getLayerHandler struct{}
 
 func (h *getLayerHandler) Handle(tx *sqlx.Tx, renderer httpext.ResponseRenderer,
 	w http.ResponseWriter, r *http.Request) error {
-	fmt.Println("getLayersHandler begin")
 
 	var err error
 	// Parse URL
 	vars := mux.Vars(r)
-	worldID, err := httpext.ReadInt64ID(vars, "worldID")
-	if err != nil {
-		fmt.Println("getLayersHandler err1")
-		renderer.WriteError(w, err)
-		return err
-	}
 	layerID, err := httpext.ReadInt64ID(vars, "layerID")
 	if err != nil {
-		fmt.Println("getLayersHandler err2")
 		renderer.WriteError(w, err)
 		return err
 	}
 
 	// Read from database
-	fmt.Println("getLayersHandler", worldID, layerID)
 	layersDB := getLayersFromContext(r)
-	layer, err := layersDB.Get(worldID, layerID)
+	layer, err := layersDB.Get(layerID)
 	if err != nil {
-		err = httpext.NewHttpError(fmt.Errorf("Could not retrieve layer with id %d in world %d (reason: %s)", layerID, worldID, err), http.StatusInternalServerError)
+		err = httpext.NewHttpError(fmt.Errorf("Could not retrieve layer with id %d (reason: %s)", layerID, err), http.StatusInternalServerError)
 		renderer.WriteError(w, err)
 		return err
 	}
 
 	// Respond
 	if layer == nil {
-		err = httpext.NewHttpError(fmt.Errorf("No layer with id %d in world %d", layerID, worldID), http.StatusNotFound)
+		err = httpext.NewHttpError(fmt.Errorf("No layer with id %d", layerID), http.StatusNotFound)
 		renderer.WriteError(w, err)
 		return err
 	}

@@ -43,7 +43,7 @@ func InvokeHandler(h Handler, method, path string,
 	var err error
 	router.Methods(method).Path(path).
 		HandlerFunc(
-			func(w http.ResponseWriter, _ *http.Request) {
+			func(w http.ResponseWriter, r *http.Request) {
 				err = h.Handle(tx, renderer, w, r)
 			})
 
