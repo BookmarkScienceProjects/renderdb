@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -28,7 +29,7 @@ type worldHandlerFixture struct {
 	renderer *httpext.MockResponseRenderer
 }
 
-func (f *worldHandlerFixture) Setup(t *testing.T) {
+func (f *worldHandlerFixture) Setup(t *testing.T, r *http.Request) {
 	var database *sql.DB
 	var err error
 	database, f.mockDB, err = sqlmock.New()
@@ -39,12 +40,11 @@ func (f *worldHandlerFixture) Setup(t *testing.T) {
 	f.tx, err = f.db.Beginx()
 	assert.NoError(t, err)
 
-	f.request, _ = http.NewRequest("GET", "", nil)
 	f.writer = httptest.NewRecorder()
 	f.renderer = &httpext.MockResponseRenderer{}
 
 	f.worlds = &db.MockWorlds{}
-	context.Set(f.request, worldsDBKey, f.worlds)
+	context.Set(r, worldsDBKey, f.worlds)
 }
 
 func (f *worldHandlerFixture) Teardown(t *testing.T) {
@@ -53,8 +53,9 @@ func (f *worldHandlerFixture) Teardown(t *testing.T) {
 
 func TestWorldsMiddleware_InjectsWorldsToContext(t *testing.T) {
 	// Arrange
+	r, _ := http.NewRequest("GET", "/worlds", nil)
 	f := worldHandlerFixture{}
-	f.Setup(t)
+	f.Setup(t, r)
 	defer f.Teardown(t)
 	middleware := worldsMiddleware{}
 
@@ -67,10 +68,11 @@ func TestWorldsMiddleware_InjectsWorldsToContext(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestGetWorldsHandler_Handle_GetAllReturnsError_WritesError(t *testing.T) {
+func TestGetWorldsHandler_GetAllReturnsError_WritesError(t *testing.T) {
 	// Arrange
+	r, _ := http.NewRequest("GET", "/worlds", nil)
 	f := worldHandlerFixture{}
-	f.Setup(t)
+	f.Setup(t, r)
 	defer f.Teardown(t)
 
 	f.worlds.On("GetAll").Return(nil, errors.New(""))
@@ -78,7 +80,9 @@ func TestGetWorldsHandler_Handle_GetAllReturnsError_WritesError(t *testing.T) {
 	handler := getWorldsHandler{}
 
 	// Act
-	err := handler.Handle(f.tx, f.renderer, f.writer, f.request)
+	err := httpext.InvokeHandler(&handler, "GET", "/worlds",
+		f.writer, r,
+		f.tx, f.renderer)
 
 	// Assert
 	assert.Error(t, err)
@@ -86,10 +90,11 @@ func TestGetWorldsHandler_Handle_GetAllReturnsError_WritesError(t *testing.T) {
 	f.renderer.AssertExpectations(t)
 }
 
-func TestGetWorldsHandler_Handle_GetAllReturnsWorlds_WritesResponse(t *testing.T) {
+func TestGetWorldsHandler_GetAllReturnsWorlds_WritesResponse(t *testing.T) {
 	// Arrange
+	r, _ := http.NewRequest("GET", "/worlds", nil)
 	f := worldHandlerFixture{}
-	f.Setup(t)
+	f.Setup(t, r)
 	defer f.Teardown(t)
 
 	worlds := []*db.World{&db.World{}}
@@ -98,10 +103,99 @@ func TestGetWorldsHandler_Handle_GetAllReturnsWorlds_WritesResponse(t *testing.T
 	handler := getWorldsHandler{}
 
 	// Act
-	err := handler.Handle(f.tx, f.renderer, f.writer, f.request)
+	err := httpext.InvokeHandler(&handler, "GET", "/worlds",
+		f.writer, r,
+		f.tx, f.renderer)
 
 	// Assert
 	assert.NoError(t, err)
 	f.worlds.AssertExpectations(t)
 	f.renderer.AssertExpectations(t)
+}
+
+func TestGetWorldHandle_GetReturnsError_WritesError(t *testing.T) {
+	// Arrange
+	r, _ := http.NewRequest("GET", "/worlds/42", nil)
+	f := worldHandlerFixture{}
+	f.Setup(t, r)
+	defer f.Teardown(t)
+
+	f.worlds.On("Get", int64(42)).Return(nil, errors.New(""))
+	f.renderer.On("WriteError", f.writer, mock.Anything)
+	handler := getWorldHandler{}
+
+	// Act
+	err := httpext.InvokeHandler(&handler, "GET", "/worlds/{worldID}",
+		f.writer, r,
+		f.tx, f.renderer)
+
+	// Assert
+	assert.Error(t, err)
+	f.worlds.AssertExpectations(t)
+	f.renderer.AssertExpectations(t)
+}
+
+func TestGetWorldHandle_GetReturnsWorld_WritesResponse(t *testing.T) {
+	// Arrange
+	r, _ := http.NewRequest("GET", "/worlds/42", nil)
+	f := worldHandlerFixture{}
+	f.Setup(t, r)
+	defer f.Teardown(t)
+
+	world := &db.World{}
+	f.worlds.On("Get", int64(42)).Return(world, nil)
+	f.renderer.On("WriteObject", f.writer, 200, world)
+	handler := getWorldHandler{}
+
+	// Act
+	err := httpext.InvokeHandler(&handler, "GET", "/worlds/{worldID}",
+		f.writer, r,
+		f.tx, f.renderer)
+
+	// Assert
+	assert.NoError(t, err)
+	f.worlds.AssertExpectations(t)
+	f.renderer.AssertExpectations(t)
+}
+
+func TestPostWorldHandle_InvalidBody_WritesError(t *testing.T) {
+	// Arrange
+	buffer := bytes.NewBuffer([]byte("{}"))
+	r, _ := http.NewRequest("POST", "/worlds", buffer)
+	f := worldHandlerFixture{}
+	f.Setup(t, r)
+
+	f.renderer.On("WriteError", f.writer, mock.Anything)
+	handler := postWorldHandler{}
+
+	// Act
+	err := httpext.InvokeHandler(&handler, "POST", "/worlds",
+		f.writer, r,
+		f.tx, f.renderer)
+
+	// Assert
+	assert.Error(t, err)
+	f.renderer.AssertExpectations(t)
+}
+
+func TestPostWorldHandle_ValidBody_WritesObject(t *testing.T) {
+	// Arrange
+	buffer := bytes.NewBuffer([]byte(`{"Name": "MyWorld"}`))
+	r, _ := http.NewRequest("POST", "/worlds", buffer)
+	f := worldHandlerFixture{}
+	f.Setup(t, r)
+
+	f.worlds.On("Add", mock.Anything).Return(int64(11), nil)
+	f.renderer.On("WriteObject", f.writer, 200, mock.Anything)
+	handler := postWorldHandler{}
+
+	// Act
+	err := httpext.InvokeHandler(&handler, "POST", "/worlds",
+		f.writer, r,
+		f.tx, f.renderer)
+
+	// Assert
+	assert.NoError(t, err)
+	f.renderer.AssertExpectations(t)
+	f.worlds.AssertExpectations(t)
 }
