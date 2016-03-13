@@ -10,8 +10,8 @@ func NewLayersDB(tx *sqlx.Tx, worldID int64) Layers {
 	return &layersDb{tx, worldID}
 }
 
-func NewScenesDB(tx *sqlx.Tx, scenes *Scene) Scenes {
-	return &scenesDb{scenes.ID, tx}
+func NewScenesDB(tx *sqlx.Tx, layerID int64) Scenes {
+	return &scenesDb{tx, layerID}
 }
 
 func NewObjectsDb(tx *sqlx.Tx, world *World) Objects {

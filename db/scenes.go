@@ -18,7 +18,7 @@ type Scene struct {
 // a layer.
 type Scenes interface {
 	// GetAll returns all scenes in a layer.
-	GetAll(layerid int64) ([]*Scene, error)
+	GetAll() ([]*Scene, error)
 	// Get returns the scene with the given ID.
 	Get(id int64) (*Scene, error)
 	// Add creates a new scene in the database and returns the ID.
@@ -29,22 +29,22 @@ type Scenes interface {
 
 const (
 	getAllScenesSQL string = "SELECT id, layer_id, name FROM scenes WHERE layer_id = ?"
-	getSceneSQL     string = "SELECT id, layer_id, name FROM scenes WHERE id = ?"
+	getSceneSQL     string = "SELECT id, layer_id, name FROM scenes WHERE id = ? AND layer_id = ?"
 	addSceneSQL     string = "INSERT INTO scenes(layer_id, name) VALUES(:layer_id, :name)"
-	deleteScenesSQL string = "DELETE FROM scenes WHERE id = ?"
+	deleteScenesSQL string = "DELETE FROM scenes WHERE id = ? AND layer_id = ?"
 )
 
 type scenesDb struct {
-	sceneID int64
 	tx      *sqlx.Tx
+	layerID int64
 }
 
 func sceneConstructor() interface{} {
 	return new(Scene)
 }
 
-func (db *scenesDb) GetAll(layerid int64) ([]*Scene, error) {
-	items, err := helpers.GetAll(db.tx, sceneConstructor, getAllScenesSQL, db.sceneID)
+func (db *scenesDb) GetAll() ([]*Scene, error) {
+	items, err := helpers.GetAll(db.tx, sceneConstructor, getAllScenesSQL, db.layerID)
 	scenes := make([]*Scene, len(items))
 	for i, s := range items {
 		scenes[i] = s.(*Scene)
@@ -53,16 +53,17 @@ func (db *scenesDb) GetAll(layerid int64) ([]*Scene, error) {
 }
 
 func (db *scenesDb) Get(id int64) (*Scene, error) {
-	item, err := helpers.Get(db.tx, sceneConstructor, getSceneSQL, id)
+	item, err := helpers.Get(db.tx, sceneConstructor, getSceneSQL, id, db.layerID)
 	return item.(*Scene), err
 }
 
 func (db *scenesDb) Add(scene *Scene) (int64, error) {
+	scene.LayerID = db.layerID
 	result, _ := db.tx.NamedExec(addSceneSQL, scene)
 	return result.LastInsertId()
 }
 
 func (db *scenesDb) Delete(id int64) error {
-	_, err := db.tx.Exec(deleteLayerSQL, id)
+	_, err := db.tx.Exec(deleteLayerSQL, id, db.layerID)
 	return err
 }

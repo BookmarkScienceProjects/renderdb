@@ -91,6 +91,7 @@ func (a *application) initializeRoutes() error {
 	routes.NewStaticController(a.router)
 	routes.RegisterWorldsRoutes(a.router, a.db)
 	routes.RegisterLayersRoutes(a.router, a.db)
+	routes.RegisterScenesRoutes(a.router, a.db)
 
 	return nil
 }
