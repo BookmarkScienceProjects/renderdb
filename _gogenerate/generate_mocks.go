@@ -1,5 +1,9 @@
 package main
 
+// go generate script for generating mocks for all interfaces
+// Uses mockery (https://github.com/vektra/mockery) to generate the actual mocks.
+// Install mockery using 'go get github.com/vektra/mockery/.../'
+
 import (
 	"fmt"
 	"os"

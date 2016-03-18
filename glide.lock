@@ -1,0 +1,52 @@
+hash: 7e9e7e8933525716d03448df15da69bb93430f074a264d62e62e068ef6ac7c29
+updated: 2016-03-18T23:03:55.67879937+01:00
+imports:
+- name: github.com/barnex/fmath
+  version: ec9671f295c249e1b53d5c81d14dc79de6a26774
+- name: github.com/codegangsta/negroni
+  version: c7477ad8e330bef55bf1ebe300cf8aa67c492d1b
+- name: github.com/DATA-DOG/go-sqlmock
+  version: 9958e5c69de03e97ec215b23f6fcae1f600c3fb6
+- name: github.com/dhconnelly/rtreego
+  version: ddfb5d7b877e08f266b663ffc387fb671f615e8d
+- name: github.com/gorilla/context
+  version: 1c83b3eabd45b6d76072b66b746c20815fb2872d
+- name: github.com/gorilla/mux
+  version: 26a6070f849969ba72b72256e9f14cf519751690
+- name: github.com/jmoiron/sqlx
+  version: 5978a4ef08e4ddae6983d82b9166353fe21c6600
+  subpackages:
+  - reflectx
+- name: github.com/jteeuwen/go-bindata
+  version: bbd0c6e271208dce66d8fda4bc536453cd27fc4a
+- name: github.com/justinas/alice
+  version: 29a850317649fc021f42f80ec29552f9a3156ee9
+- name: github.com/lib/pq
+  version: 8ad2b298cadd691a77015666a5372eae5dbfac8f
+  subpackages:
+  - oid
+- name: github.com/mattn/go-sqlite3
+  version: 3b3f1d01b2696af5501697c35629048c227586ab
+- name: github.com/rubenv/sql-migrate
+  version: 8dc77fb3a659924fe7005d97c80c856287acccbb
+  subpackages:
+  - sqlparse
+- name: github.com/stretchr/testify
+  version: f390dcf405f7b83c997eac1b06768bb9f44dec18
+  subpackages:
+  - assert
+  - mock
+- name: github.com/ungerik/go3d
+  version: b765e791b61c6db0b9ff62072092d28395aeb106
+  subpackages:
+  - vec3
+  - float64/vec3
+  - float64/generic
+- name: golang.org/x/net
+  version: cbbbe2bc0f2efdd2afb318d93f1eadb19350e4a3
+  subpackages:
+  - http2
+  - http2/hpack
+- name: gopkg.in/gorp.v1
+  version: c87af80f3cc5036b55b83d77171e156791085e2e
+devImports: []
