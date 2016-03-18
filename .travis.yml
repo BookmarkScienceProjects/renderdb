@@ -18,6 +18,6 @@ install:
    - glide install
 
 script:
-   - go generate
+   - go generate $(glide nv)
    - go build -v
    - go test -v $(glide nv)
