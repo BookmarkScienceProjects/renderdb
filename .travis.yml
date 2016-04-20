@@ -18,7 +18,8 @@ install:
    - glide install
 
 script:
-   - go generate $(glide nv)
+   - go generate .
    - ls -lh routes
+   - mockery -dir ./routes/ -recursive -all -inpkg
    - go build -v
    - go test -v $(glide nv)
