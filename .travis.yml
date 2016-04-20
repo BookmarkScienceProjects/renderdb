@@ -19,5 +19,6 @@ install:
 
 script:
    - go generate $(glide nv)
+   - ls -lh routes
    - go build -v
    - go test -v $(glide nv)
