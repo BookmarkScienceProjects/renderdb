@@ -108,6 +108,7 @@ func RegisterScenesRoutes(router *mux.Router, db *sqlx.DB) {
 	router.Handle("/scenes", postScene).Methods("POST")
 }
 
+/*
 // RegisterGeometryRoutes registers handelrs for the "/worlds/{worldID}/layers/{layerID}/scenes/{sceneID}/geometry"-route.
 func RegisterGeometryRoutes(router *mux.Router, db *sqlx.DB) {
 	renderer := httpext.NewJSONResponseRenderer()
@@ -117,3 +118,4 @@ func RegisterGeometryRoutes(router *mux.Router, db *sqlx.DB) {
 	router = router.Path("/worlds/{worldID:[0-9]+}/layers/{layerID:[0-9]+}/scenes/{sceneID:[0-9]+}").Subrouter()
 	router.Handle("/geometry", postSceneGeometry).Methods("POST")
 }
+*/
