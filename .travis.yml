@@ -8,17 +8,17 @@ go:
 env:
    - GO15VENDOREXPERIMENT=1
 
-before_install:
+install:
    - go get github.com/Masterminds/glide
    - go install github.com/Masterminds/glide 
-
-install:
    - go get github.com/jteeuwen/go-bindata/...
    - go get github.com/vektra/mockery/.../
    - glide install
 
+before_script:
+   - go generate $(glide nv)
+
 script:
-   - go generate .
    - ls -lh routes
    - mockery -dir ./routes/ -recursive -all -inpkg
    - go build -v
