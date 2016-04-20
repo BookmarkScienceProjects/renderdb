@@ -57,5 +57,7 @@ func glideNoVendor() ([]string, error) {
 func generateMocks(dir string) error {
 	args := []string{"-dir", dir, "-recursive", "-all", "-inpkg"}
 	cmd := exec.Command("mockery", args...)
-	return cmd.Run()
+	buf, err := cmd.CombinedOutput()
+	fmt.Println(string(buf))
+	return err
 }
