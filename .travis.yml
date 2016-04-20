@@ -15,7 +15,6 @@ before_install:
 install:
    - go get github.com/jteeuwen/go-bindata/...
    - go get github.com/vektra/mockery/.../
-   - glide get
    - glide install
 
 script:
