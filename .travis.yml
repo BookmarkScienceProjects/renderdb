@@ -17,7 +17,7 @@ install:
 
 before_script:
    - rsync -r vendor/. $GOPATH/src/
-   - find vendor/ -type d
+   - rm -rf vendor/
    - ls $GOPATH/src/
    - ls $GOPATH/src/github.com/
    - go generate $(glide nv)
