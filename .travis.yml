@@ -16,6 +16,7 @@ install:
    - glide install
 
 before_script:
+   - cp -R vendor/* $GOPATH/
    - go generate $(glide nv)
 
 script:
