@@ -59,6 +59,7 @@ func (db *objectsDb) Add(o Object) (int64, error) {
 	boundsMin := o.Bounds().Min
 	boundsMax := o.Bounds().Max
 	result, err := db.tx.Exec(insertGeometrySQL,
+		o.WorldID(), o.LayerID(), o.SceneID(),
 		boundsMin[0], boundsMin[1], boundsMin[2],
 		boundsMax[0], boundsMax[1], boundsMax[2],
 		o.GeometryData(), jsonTxt)
