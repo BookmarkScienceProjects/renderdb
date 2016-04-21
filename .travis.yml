@@ -20,7 +20,9 @@ before_script:
 
 script:
    - pwd
+   - echo $GOPATH
    - ls -lh routes
+   - ls -lh vendor/github.com/jmoiron
    - mockery -dir ./routes/ -recursive -all -inpkg
    - go build -v
    - go test -v $(glide nv)
