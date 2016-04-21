@@ -19,6 +19,7 @@ before_script:
    - go generate $(glide nv)
 
 script:
+   - pwd
    - ls -lh routes
    - mockery -dir ./routes/ -recursive -all -inpkg
    - go build -v
