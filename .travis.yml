@@ -17,6 +17,7 @@ install:
 
 before_script:
    - cp -R vendor/ $GOPATH/src/
+   - find vendor/ -type d
    - ls $GOPATH/src/github.com/
    - go generate $(glide nv)
 
