@@ -16,17 +16,8 @@ install:
    - glide install
 
 before_script:
-   - rsync -r vendor/. $GOPATH/src/
-   - rm -rf vendor/
-   - ls $GOPATH/src/
-   - ls $GOPATH/src/github.com/
    - go generate $(glide nv)
 
 script:
-   - pwd
-   - echo $GOPATH
-   - ls -lh routes
-   - ls -lh vendor/github.com/jmoiron
-   - mockery -dir ./routes/ -recursive -all -inpkg
    - go build -v
    - go test -v $(glide nv)
