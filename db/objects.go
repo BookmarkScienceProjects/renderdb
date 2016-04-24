@@ -17,7 +17,8 @@ const (
             geometry_data, metadata) 
           VALUES (?, ?, ?, 
                   ?, ?, ?, 
-                  ?, ?)`
+                  ?, ?, ?,
+				  ?, ?)`
 	selectGeometrySQL string = `SELECT id,
                 world_id, layer_id, scene_id,
                 bounds_x_min, bounds_y_min, bounds_z_min, 
