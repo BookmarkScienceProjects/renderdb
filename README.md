@@ -30,43 +30,43 @@ The API is layered into 'worlds', 'layers', 'scenes' and 'objects'.
 ## Data management endpoints
 
 - POST 	/worlds
--- Adds a new world
+  Adds a new world
 - GET  	/worlds
--- Returns metadata for all known worlds
+  Returns metadata for all known worlds
 - GET  	/worlds/{id}
--- Returns metadata the world with the given ID
+  Returns metadata the world with the given ID
 - DELETE 	/worlds/{id} 	(Not implemented yet)
--- Deletes the world with the given ID. Deletes all
+  Deletes the world with the given ID. Deletes all
   layers in the world.
 - POST 	/worlds/{id}/layers
--- Adds a new layer to the given world
+  Adds a new layer to the given world
 - GET 		/worlds/{id}/layers
--- Returns metadata for all layers in the world
+  Returns metadata for all layers in the world
 - GET 		/worlds/{id}/layers/{id}
--- Returns metadata for the layer with the given ID
+  Returns metadata for the layer with the given ID
 - DELETE   /worlds/{id}/layers/{id} 	(Not implemented yet)
--- Deletes the layer with the given ID. Deletes all
+  Deletes the layer with the given ID. Deletes all
   scenes in the layer.
 - POST 	/worlds/{id}/layers/{id}/scenes
--- Adds a new scene to the given layer. Scenes are specified
+  Adds a new scene to the given layer. Scenes are specified
   using the Wavefront OBJ-format and each group
   in the file is considered to be a separate object.
 - PUT 		/worlds/{id}/layers/{id}/scenes/{id}	(Not implemented yet)
--- Replaces all geometry in a scene. Supports the same
+  Replaces all geometry in a scene. Supports the same
   formats as the POST request.
 - GET 		/worlds/{id}/layers/{id}/scenes
--- Returns metadata for all scenes in the layer.
+  Returns metadata for all scenes in the layer.
 - GET 		/worlds/{id}/layers/{id}/scenes/{id}
--- Returns metadata for the given scene.
+  Returns metadata for the given scene.
 - DELETE 	/worlds/{id}/layers/{id}/scenes/{id}	(Not implemented yet)
--- Deletes the scene with the given ID and all the objects
+  Deletes the scene with the given ID and all the objects
   in the scene.
 
 ## Geometry query endpoints
 - GET /world/{id}/geometry?{filter}&{options}	(Not implemented yet)
--- Gets all geometry in the world that matches the filter.
+  Gets all geometry in the world that matches the filter.
 - GET /world/{id}/layers/{id}/geometry?{filter}&{options}	(Not implemented yet)
--- Gets all geometry in the layer that matches the filter.
+  Gets all geometry in the layer that matches the filter.
 
 Filters is used to filter away unwanted data, e.g. based on location or distance
 to camera.
