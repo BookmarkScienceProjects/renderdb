@@ -27,7 +27,6 @@ type databaseFixture struct {
 }
 
 func (f *databaseFixture) Setup(t *testing.T) {
-
 	var err error
 	f.db, err = sqlx.Open("sqlite3", ":memory:")
 	assert.NoError(t, err, "Could not open database")
@@ -70,11 +69,10 @@ func TestObjectsDb_Add_ValidElement_InsertsElement(t *testing.T) {
 	obj.geometryData = []byte{1}
 
 	// Act
-	id, err := database.Add(obj)
+	_, err := database.Add(obj)
 
 	// Assert
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), id)
 }
 
 func TestObjectsDb_GetMany_NonExistantId_ReturnsError(t *testing.T) {
@@ -118,13 +116,10 @@ func TestObjectsDb_GetMany_ValidId_ReturnsData(t *testing.T) {
 	f.Setup(t)
 	defer f.Teardown(t)
 	database := objectsDb{worldID: 1, tx: f.tx}
-	r, _ := f.db.Exec(insertGeometrySQL, 0, 0, 0, 1, 1, 1, "ABC", "{}")
+	r, err := f.tx.Exec(insertGeometrySQL, 1, 2, 3, 0, 0, 0, 1, 1, 1, "ABC", "{}")
+	assert.NoError(t, err)
 	id, _ := r.LastInsertId()
-	rows, _ := f.db.Query("SELECT id FROM geometry_objects WHERE ID IN (1)")
-	defer rows.Close()
-	for rows.Next() {
-		rows.Scan(&id)
-	}
+
 	// Act
 	dataCh, errCh := database.GetMany([]int64{id})
 
@@ -145,7 +140,7 @@ func TestObjectsDb_GetAll_PopulatedDb_ReturnsData(t *testing.T) {
 	f.Setup(t)
 	defer f.Teardown(t)
 	database := objectsDb{worldID: 1, tx: f.tx}
-	_, err := f.db.Exec(insertGeometrySQL, 0, 0, 0, 1, 1, 1, "", "{}")
+	_, err := f.tx.Exec(insertGeometrySQL, 1, 2, 3, 0, 0, 0, 1, 1, 1, "", "{}")
 	assert.NoError(t, err)
 
 	// Act

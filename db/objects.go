@@ -88,7 +88,7 @@ func (db *objectsDb) GetMany(ids []int64) (<-chan Object, <-chan error) {
 
 			// TODO: Consider if this should be optimized by creating a temporary table
 			// http://explainextended.com/2009/08/18/passing-parameters-in-mysql-in-list-vs-temporary-table/
-			q, args, _ := sqlx.In(fmt.Sprintf("%s AND id IN (?)", selectGeometrySQL), chunkIds)
+			q, args, _ := sqlx.In(fmt.Sprintf("%s AND id IN (?)", selectGeometrySQL), db.worldID, chunkIds)
 			q = sqlx.Rebind(sqlx.QUESTION, q)
 			rows, err := db.tx.Queryx(q, args...)
 			if err != nil {
