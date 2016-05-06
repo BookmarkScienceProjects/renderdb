@@ -1,3 +1,4 @@
 renderdb
 test.db
 repository/sql/migrations.go
+vendor/
